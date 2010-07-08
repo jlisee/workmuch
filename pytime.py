@@ -12,12 +12,14 @@ import os.path
 import sys
 import csv
 import ctypes
+import logging
 import traceback
 from datetime import datetime
 from optparse import OptionParser
 
 # Library Imports
 import Xlib.display
+import Xlib.error
 
 # Project Imports
 import timeutil
@@ -43,9 +45,9 @@ class CurrentWindowTitle(object):
     """Class for efficiently querying the current window title and program"""
     
     def __init__(self):
-        self.__setup__()
+        self._setup()
 
-    def __setup__(self):
+    def _setup(self):
         self.display = Xlib.display.Display()
         self.screen = self.display.screen()
 
@@ -96,20 +98,22 @@ class CurrentWindowTitle(object):
         #  w.GetWindowText (w.GetForegroundWindow())
     
     def release(self):
-        self.display.close()
+        if self.display is not None:
+            self.display.close()
+        self.display = None
 
     def reset(self):
         self.release()
-        self.__setup__()
+        self._setup()
 
 class IdleTime(object):
     """Class for efficiently querying the current x display idle time"""
     
     def __init__(self):
-        self.__setup__()
+        self._setup()
         self.xss_info = xss.XScreenSaverAllocInfo()
 
-    def __setup__(self):
+    def _setup(self):
         self.dpy = xlib.XOpenDisplay(os.environ['DISPLAY'])
         self.root = xlib.XDefaultRootWindow(self.dpy)
 
@@ -118,18 +122,68 @@ class IdleTime(object):
         return float(self.xss_info.contents.idle) / 1000.0
 
     def release(self):
-        xlib.XCloseDisplay(self.dpy)
+        if self.dpy is not None:
+            xlib.XCloseDisplay(self.dpy)
+        self.dpy = None
 
     def reset(self):
         self.release()
-        self.__setup__()
+        self._setup()
 
+class UsageInfo(object):
+    """Gets the current window/program info and idle time"""
+
+    def __init__(self):
+        self.idleTime = IdleTime()
+        self.currentWindow = CurrentWindowTitle()
+        
+    def getUsageInfo(self):
+        try:
+            return self._doGetUsageInfo()
+        except Xlib.error.Errors, e:
+            # Log this error an try to handle it
+            logging.error(traceback.format_exc())
+
+            # Reset our interface, to work around any odd X bug
+            self._forceReset()
+
+            # Now attempt to grab the data again
+            return self._doGetUsageInfo()
+
+    def _doGetUsageInfo(self):
+        """Use lower level API's to retrieve title,progname,idletime"""
+        winTitle,progName = self.currentWindow.getCurrentWindowInfo()
+        timeIdle = self.idleTime.getIdleTime()
+
+        return winTitle,progName,timeIdle
+
+    def _forceReset():
+        # First the idle time
+        try:
+            self.idleTime.release()
+        except BaseException, e:
+            # Log an continue on
+            logging.error(traceback.format_exc())
+
+        self.idleTime.reset()
+
+        # Now lets try to get currentWindow back
+        try:
+            self.currentWindow.release()
+        except BaseException, e:
+            # Log an continue on
+            logging.error(traceback.format_exc())
+
+        self.currentWindow.reset()
+
+    def reset(self):
+        self.idleTime.reset()
+        self.currentWindow.reset()
 
 def mainloop(dataWriter, options):
     # Create handles to the graphics system, and the time we refresh them
     resetTime = timeutil.time() + 5;
-    idleTime = IdleTime()
-    currentWindow = CurrentWindowTitle()
+    usageInfo = UsageInfo()
 
     while 1:
         # Record the current time
@@ -137,13 +191,11 @@ def mainloop(dataWriter, options):
 
         # Recreate handle system
         if curTime >= resetTime:
-            idleTime.reset()
-            currentWindow.reset()
+            usageInfo.reset()
             resetTime = timeutil.time() + 5;
 
         # Gather our info
-        winTitle,progName = currentWindow.getCurrentWindowInfo()
-        timeIdle = idleTime.getIdleTime()
+        winTitle,progName,timeIdle = usageInfo.getUsageInfo()
 
         # Log text
         dataWriter.writerow([winTitle,progName,timeIdle,curTime])
@@ -158,16 +210,21 @@ def mainloop(dataWriter, options):
             
         timeutil.sleep(sleepTime)
 
-def getLogFile():
+def getLogDir():
     # Retrieve the logging directory and make sure it exists
-    #logDir = os.path.join(os.environ['HOME'], '.workmuch')
-    logDir = '/home/jlisee/.workmuch'
+    logDir = os.path.join(os.environ['HOME'], '.workmuch')
+    #logDir = '/home/jlisee/.workmuch'
+
+    # Ensure the directory exists
     if not os.path.exists(logDir):
         os.mkdir(logDir)
-
+    
+    return logDir
+    
+def getLogFile():
     # Form the log path
     fileName = datetime.now().strftime("%Y-%m-%d.worklog")
-    filePath = os.path.join(logDir, fileName)
+    filePath = os.path.join(getLogDir(), fileName)
 
     # Open file for appending and return
     return open(filePath, 'a')
@@ -176,6 +233,21 @@ def main(argv = None):
     if argv is None:
         argv = sys.argv
 
+    # Configure logging
+    errorLogFileName = os.path.join(getLogDir(), 'error.log')
+    logLevel = logging.DEBUG
+    logFormat = "%(asctime)s %(levelname)s %(message)s"
+
+    if sys.stdout.isatty():
+        # If we are running in a terminal, log to it
+        logging.basicConfig(level=logLevel, format=logFormat)
+    else:
+        # We are running in the background so log to file
+        logging.basicConfig(level=logLevel, format=logFormat,
+                            filename=errorLogFileName, filemode='a')   
+
+    logging.info('Program started')
+
     # Define and parse arguments
     parser = OptionParser()
     parser.set_defaults(rate = 1.0)
@@ -183,6 +255,8 @@ def main(argv = None):
                       help='samples per second')
     
     (options,args) = parser.parse_args(args = argv)
+
+    logging.info('Recording at %fHz' % options.rate)
 
     # Do a little self check
     idleTime = IdleTime()
@@ -207,18 +281,14 @@ def main(argv = None):
     except:
         logFile.close()
         raise
-    
+
+    logging.info('Program shutdown')
 
 if __name__ == "__main__":
     retVal = 0
     try:
         retVal = main()
     except BaseException, e:
-        print "CAUGHT"
-        a = open('/tmp/workmuch-errors','w')
-        a.write(str(e))
-        a.write('\n\n\n\n')
-        a.write(str(type(e)))
-        traceback.print_exc(file = a)
-        a.close()
+        logging.error(traceback.format_exc())
+
     sys.exit(retVal)
