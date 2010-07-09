@@ -176,9 +176,14 @@ class UsageInfo(object):
 
         self.currentWindow.reset()
 
+    def release(self):
+        self.idleTime.release()
+        self.currentWindow.release()
+
     def reset(self):
         self.idleTime.reset()
         self.currentWindow.reset()
+        
 
 def mainloop(dataWriter, options):
     # Create handles to the graphics system, and the time we refresh them
@@ -259,28 +264,30 @@ def main(argv = None):
     logging.info('Recording at %fHz' % options.rate)
 
     # Do a little self check
-    idleTime = IdleTime()
-    currentWindow = CurrentWindowTitle()
+    usageInfo = UsageInfo()
+    winTitle,progName,timeIdle = usageInfo.getUsageInfo()
 
-    winTitle,progName = currentWindow.getCurrentWindowInfo()
     if winTitle is None:
-        print "WARNING: your system does not supply window titles"
+        logger.warn("your system does not supply window titles")
     if len(progName) == 0:
-        print "WARNING: your system does not supply program names"
+        logger.warn("your system does not supply program names")
 
     # Release our resources
-    idleTime.release()
-    currentWindow.release()
-
+    usageInfo.release()
+    
     # Determine the filename based on the current date
     logFile = getLogFile()
     dataWriter = csv.writer(logFile, quoting=csv.QUOTE_MINIMAL)
 
+    # Start the logging, and make sure close the file no matter the exit method
     try:
         mainloop(dataWriter, options)
-    except:
+    except (KeyboardInterrupt):
+        logging.info('Ctrl+C shutdown')
+    except (SystemExit):
+        logging.info('Forced shutdown')
+    finally:
         logFile.close()
-        raise
 
     logging.info('Program shutdown')
 
