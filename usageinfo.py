@@ -1,6 +1,5 @@
 # Python Imports
 import os
-import sys
 import ctypes
 import logging
 import traceback
