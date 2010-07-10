@@ -78,19 +78,23 @@ class CurrentWindowTitle(object):
         focus = self.display.get_input_focus()
         curWin = focus.focus
 
-        # Find the top level window
-        topLevelWin = self.makeTopLevelWindow(curWin)
+        # During early startup sometimes Xlib gives us back bogus objects
+        if hasattr(curWin, 'query_tree'):
+            # Find the top level window
+            topLevelWin = self.makeTopLevelWindow(curWin)
 
-        # Grab program name
-        clsInfo = topLevelWin.get_wm_class()
-        progName = ''
-        if clsInfo is not None:
-            progName = clsInfo[1]
+            # Grab program name
+            clsInfo = topLevelWin.get_wm_class()
+            progName = ''
+            if clsInfo is not None:
+                progName = clsInfo[1]
 
-        # Record window title bar            
-        title = topLevelWin.get_wm_name()
+            # Record window title bar            
+            title = topLevelWin.get_wm_name()
  
-        return title,progName
+            return title,progName
+        else:
+            return '',''
 
         # Windows syntax
         #  import win32gui
@@ -140,7 +144,7 @@ class UsageInfo(object):
     def getUsageInfo(self):
         try:
             return self._doGetUsageInfo()
-        except Xlib.error.Errors, e:
+        except Xlib.error.XError, e:
             # Log this error an try to handle it
             logging.error(traceback.format_exc())
 
@@ -157,7 +161,7 @@ class UsageInfo(object):
 
         return winTitle,progName,timeIdle
 
-    def _forceReset():
+    def _forceReset(self):
         # First the idle time
         try:
             self.idleTime.release()
@@ -255,22 +259,31 @@ def main(argv = None):
 
     # Define and parse arguments
     parser = OptionParser()
-    parser.set_defaults(rate = 1.0)
+    parser.set_defaults(rate = 1.0, delay = 0.0)
     parser.add_option('-r', '--rate', type = "float", dest = 'rate',
                       help='samples per second')
+    parser.add_option('-d', '--start-delay', type = "float", dest = 'delay',
+                      help='time between program startup and logging start')
     
     (options,args) = parser.parse_args(args = argv)
 
+    # Report startup options
     logging.info('Recording at %fHz' % options.rate)
+    logging.info('Waiting %f seconds before starting logging' % options.delay)
+
+    # wait to start our logging
+    if options.delay > 0:
+        timeutil.sleep(options.delay)
+        logging.info('Delay complete, logging commensing')
 
     # Do a little self check
     usageInfo = UsageInfo()
     winTitle,progName,timeIdle = usageInfo.getUsageInfo()
 
     if winTitle is None:
-        logger.warn("your system does not supply window titles")
+        logging.warn("your system does not supply window titles")
     if len(progName) == 0:
-        logger.warn("your system does not supply program names")
+        logging.warn("your system does not supply program names")
 
     # Release our resources
     usageInfo.release()
@@ -289,7 +302,7 @@ def main(argv = None):
     finally:
         logFile.close()
 
-    logging.info('Program shutdown')
+    logging.info('Program shutdown complete')
 
 if __name__ == "__main__":
     retVal = 0
