@@ -2,8 +2,19 @@
 WorkMuch
 ========
 
+Copyright (c) 2011 Joseph Lisee
+All rights reserved.
+
+
+License information
+-------------------
+
+See the file "LICENSE" for information on the history of this software, terms &
+conditions for usage, and a DISCLAIMER OF ALL WARRANTIES.
+
+
 About
-=====
+-----
 
 This is a simple tool that uses the X windows system to record which program
 you are currently using and it's title bar.  It can do this at a high rate so
@@ -12,7 +23,7 @@ use your computer for.
 
 
 Dependencies
-============
+------------
 
 python-xlib is used to interact with X11, and libX11 and libXss directly 
 through ctypes.  You can install these on ubuntu using::
@@ -21,7 +32,7 @@ through ctypes.  You can install these on ubuntu using::
 
 
 Usage
-=====
+-----
 
 Just run the pytime.py program (use --help to see the options) and it will
 record data into the ~/.workmuch directory.
