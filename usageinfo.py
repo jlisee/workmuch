@@ -31,6 +31,8 @@ import traceback
 import Xlib.display
 import Xlib.error
 
+# Project Imports
+from usageinfo_base import UsageInfoBackend
 
 # Load libXss with ctypes
 class XScreenSaverInfo( ctypes.Structure):
@@ -142,7 +144,7 @@ class IdleTime(object):
         self.release()
         self._setup()
 
-class UsageInfo(object):
+class UsageInfo(UsageInfoBackend):
     """Gets the current window/program info and idle time"""
 
     def __init__(self):
@@ -195,4 +197,3 @@ class UsageInfo(object):
     def reset(self):
         self.idleTime.reset()
         self.currentWindow.reset()
-

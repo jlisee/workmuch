@@ -35,12 +35,12 @@ from optparse import OptionParser
 
 # Project Imports
 import timeutil
-from usageinfo import UsageInfo
+from usageinfo_factory import createUsageInfo
 
 def mainloop(dataWriter, options):
     # Create handles to the graphics system, and the time we refresh them
     resetTime = timeutil.time() + 5;
-    usageInfo = UsageInfo()
+    usageInfo = createUsageInfo()
 
     while 1:
         # Record the current time
@@ -125,7 +125,7 @@ def main(argv = None):
         logging.info('Delay complete, logging commensing')
 
     # Do a little self check
-    usageInfo = UsageInfo()
+    usageInfo = createUsageInfo()
     winTitle,progName,timeIdle = usageInfo.getUsageInfo()
 
     if winTitle is None:
