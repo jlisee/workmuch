@@ -91,7 +91,7 @@ def sleep(seconds):
     # Convert the remainder to nano seconds
     nsecs = (seconds - secs) * 1e9;
     
-    nanosleep(long(secs), long(nsecs))
+    nanosleep(int(secs), int(nsecs))
 
 def time():
     """
@@ -110,4 +110,3 @@ def time():
     # This on on Windows
     else:
         return _time.clock()
-

@@ -154,7 +154,7 @@ class UsageInfo(UsageInfoBackend):
     def getUsageInfo(self):
         try:
             return self._doGetUsageInfo()
-        except Xlib.error.XError, e:
+        except Xlib.error.XError:
             # Log this error an try to handle it
             logging.error(traceback.format_exc())
 
@@ -175,7 +175,7 @@ class UsageInfo(UsageInfoBackend):
         # First the idle time
         try:
             self.idleTime.release()
-        except BaseException, e:
+        except BaseException:
             # Log an continue on
             logging.error(traceback.format_exc())
 
@@ -184,7 +184,7 @@ class UsageInfo(UsageInfoBackend):
         # Now lets try to get currentWindow back
         try:
             self.currentWindow.release()
-        except BaseException, e:
+        except BaseException:
             # Log an continue on
             logging.error(traceback.format_exc())
 

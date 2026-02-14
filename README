@@ -26,14 +26,25 @@ use your computer for.
 Dependencies
 ------------
 
-python-xlib is used to interact with X11, and libX11 and libXss directly 
-through ctypes.  You can install these on ubuntu using::
+python-xlib is used to interact with X11, and libX11 and libXss directly
+through ctypes. You can install the system libraries on Ubuntu using::
 
-    sudo apt-get install python-xlib libX11-dev libXss-dev
+    sudo apt-get install libX11-dev libXss-dev
+
+This project now uses `uv` to manage the Python runtime and dependencies from
+`pyproject.toml`.
 
 
 Usage
 -----
 
-Just run the pytime.py program (use --help to see the options) and it will
-record data into the ~/.workmuch directory.
+1. Install dependencies into the project environment:
+
+       uv sync
+
+2. Run the program with uv:
+
+       uv run python pytime.py --help
+
+Just run `pytime.py` with your preferred options and it will record data into
+the `~/.workmuch` directory.

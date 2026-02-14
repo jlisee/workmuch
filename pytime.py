@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # Copyright (c) 2010 Joseph Lisee <jlisee@gmail.com>
 #
@@ -113,7 +113,7 @@ def main(argv = None):
     parser.add_option('-d', '--start-delay', type = "float", dest = 'delay',
                       help='time between program startup and logging start')
     
-    (options,args) = parser.parse_args(args = argv)
+    (options,args) = parser.parse_args(args = argv[1:])
 
     # Report startup options
     logging.info('Recording at %fHz' % options.rate)
@@ -156,7 +156,8 @@ if __name__ == "__main__":
     retVal = 0
     try:
         retVal = main()
-    except BaseException, e:
+    except Exception:
         logging.error(traceback.format_exc())
+        retVal = 1
 
     sys.exit(retVal)
