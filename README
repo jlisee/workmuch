@@ -17,17 +17,18 @@ ALL WARRANTIES.
 About
 -----
 
-This is a simple tool that uses the X windows system to record which program
-you are currently using and it's title bar.  It can do this at a high rate so
-you can analyze the results and get accurate reporting on what you actually 
-use your computer for.
+This tool records which program/window you are currently using and your idle
+time at a configurable sample rate so you can analyze what you actually use
+your computer for.
+
+- Linux: uses X11 (`python-xlib` + `libX11`/`libXss`)
+- macOS: uses native system queries (`osascript` and `ioreg`)
 
 
 Dependencies
 ------------
 
-python-xlib is used to interact with X11, and libX11 and libXss directly
-through ctypes. You can install the system libraries on Ubuntu using::
+On Linux, install the required X11 libraries using::
 
     sudo apt-get install libX11-dev libXss-dev
 
@@ -48,3 +49,10 @@ Usage
 
 Just run `pytime.py` with your preferred options and it will record data into
 the `~/.workmuch` directory.
+
+Tests
+-----
+
+Run tests with:
+
+    uv run pytest -q

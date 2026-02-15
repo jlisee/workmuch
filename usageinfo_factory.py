@@ -35,9 +35,12 @@ def createUsageInfo(platform = None):
         platform = sys.platform
 
     # Current implementation remains X11/Linux-only.  The factory exists so
-    # additional platform backends (macOS/Windows) can be introduced cleanly.
+    # additional platform backends (Windows) can be introduced cleanly.
     if platform.startswith('linux'):
         from usageinfo import UsageInfo
         return UsageInfo()
+    if platform == 'darwin':
+        from usageinfo_macos import UsageInfoMacOS
+        return UsageInfoMacOS()
 
     raise NotImplementedError('Unsupported platform: %s' % platform)
