@@ -60,11 +60,11 @@ def mainloop(dataWriter, options):
         # Wait until the next needed iteration
         wakeTime = curTime + (1.0 / options.rate)
         sleepTime = -1
-        
+
         while sleepTime < 0:
             sleepTime = wakeTime - timeutil.time()
             wakeTime = wakeTime + (1.0 / options.rate)
-            
+
         timeutil.sleep(sleepTime)
 
 def getLogDir():
@@ -75,9 +75,9 @@ def getLogDir():
     # Ensure the directory exists
     if not os.path.exists(logDir):
         os.mkdir(logDir)
-    
+
     return logDir
-    
+
 def getLogFile():
     # Form the log path
     fileName = datetime.now().strftime("%Y-%m-%d.worklog")
@@ -90,34 +90,39 @@ def main(argv = None):
     if argv is None:
         argv = sys.argv
 
-    # Configure logging
-    errorLogFileName = os.path.join(getLogDir(), 'error.log')
-    logLevel = logging.DEBUG
-    logFormat = "%(asctime)s %(levelname)s %(message)s"
-
-    if sys.stdout.isatty():
-        # If we are running in a terminal, log to it
-        logging.basicConfig(level=logLevel, format=logFormat)
-    else:
-        # We are running in the background so log to file
-        logging.basicConfig(level=logLevel, format=logFormat,
-                            filename=errorLogFileName, filemode='a')   
-
-    logging.info('Program started')
-
     # Define and parse arguments
     parser = OptionParser()
-    parser.set_defaults(rate = 1.0, delay = 0.0)
+    parser.set_defaults(rate = 1.0, delay = 0.0, qa_console = False)
     parser.add_option('-r', '--rate', type = "float", dest = 'rate',
                       help='samples per second')
     parser.add_option('-d', '--start-delay', type = "float", dest = 'delay',
                       help='time between program startup and logging start')
-    
+    parser.add_option('--qa-console', action='store_true', dest='qa_console',
+                      help='log activity to stdout and do not write files')
+
     (options,args) = parser.parse_args(args = argv[1:])
+
+    # Configure logging
+    logLevel = logging.DEBUG
+    logFormat = "%(asctime)s %(levelname)s %(message)s"
+
+    if options.qa_console or sys.stdout.isatty():
+        # If we are running in QA mode or terminal, log to stderr.
+        logging.basicConfig(level=logLevel, format=logFormat)
+    else:
+        # We are running in the background so log to file
+        errorLogFileName = os.path.join(getLogDir(), 'error.log')
+        logging.basicConfig(level=logLevel, format=logFormat,
+                            filename=errorLogFileName, filemode='a')
+
+    logging.info('Program started')
 
     # Report startup options
     logging.info('Recording at %fHz' % options.rate)
     logging.info('Waiting %f seconds before starting logging' % options.delay)
+    logging.info(
+        'CSV columns: window_title, program_name, idle_seconds, timestamp_seconds'
+    )
 
     # wait to start our logging
     if options.delay > 0:
@@ -135,10 +140,17 @@ def main(argv = None):
 
     # Release our resources
     usageInfo.release()
-    
-    # Determine the filename based on the current date
-    logFile = getLogFile()
-    dataWriter = csv.writer(logFile, quoting=csv.QUOTE_MINIMAL)
+
+    # Select output destination
+    if options.qa_console:
+        logFile = None
+        csvOutput = sys.stdout
+        logging.info("QA console mode enabled: not writing work log files")
+    else:
+        logFile = getLogFile()
+        csvOutput = logFile
+
+    dataWriter = csv.writer(csvOutput, quoting=csv.QUOTE_MINIMAL)
 
     # Start the logging, and make sure close the file no matter the exit method
     try:
@@ -148,7 +160,8 @@ def main(argv = None):
     except (SystemExit):
         logging.info('Forced shutdown')
     finally:
-        logFile.close()
+        if logFile is not None:
+            logFile.close()
 
     logging.info('Program shutdown complete')
 

@@ -50,6 +50,13 @@ Usage
 Just run `pytime.py` with your preferred options and it will record data into
 the `~/.workmuch` directory.
 
+For manual QA, use console mode to avoid writing any files:
+
+    uv run python pytime.py --qa-console
+
+In this mode, activity rows are emitted to stdout as CSV and no work log or
+error log files are written.
+
 Tests
 -----
 
