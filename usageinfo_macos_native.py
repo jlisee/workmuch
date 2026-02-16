@@ -60,6 +60,24 @@ class _MacOSNativeAPI(object):
     def is_accessibility_trusted(self):
         return bool(self._app_services.AXIsProcessTrusted())
 
+    def _build_ax_prompt_options(self, prompt):
+        option_key = getattr(
+            self._app_services,
+            "kAXTrustedCheckOptionPrompt",
+            "AXTrustedCheckOptionPrompt",
+        )
+        return {option_key: bool(prompt)}
+
+    def is_accessibility_trusted_with_prompt(self, prompt=False):
+        trust_checker = getattr(
+            self._app_services,
+            "AXIsProcessTrustedWithOptions",
+            None,
+        )
+        if trust_checker is None:
+            return self.is_accessibility_trusted()
+        return bool(trust_checker(self._build_ax_prompt_options(prompt)))
+
     def get_frontmost_application(self):
         app = self._workspace.frontmostApplication()
         if app is None:

@@ -129,6 +129,11 @@ def main(argv = None):
         timeutil.sleep(options.delay)
         logging.info('Delay complete, logging commensing')
 
+    if sys.platform == 'darwin':
+        from permissions_macos import have_accessibility_perms
+        if not have_accessibility_perms():
+            return 1
+
     # Do a little self check
     usageInfo = createUsageInfo()
     winTitle,progName,timeIdle = usageInfo.getUsageInfo()
