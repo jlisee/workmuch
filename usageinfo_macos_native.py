@@ -87,6 +87,35 @@ class _MacOSNativeAPI(object):
         prog_name = self._to_text(app.localizedName())
         return pid, prog_name
 
+    def get_frontmost_window_info(self):
+        """Return (pid, app_name, window_title) for the top visible window."""
+        options = (
+            self._quartz.kCGWindowListOptionOnScreenOnly
+            | self._quartz.kCGWindowListExcludeDesktopElements
+        )
+        window_list = self._quartz.CGWindowListCopyWindowInfo(
+            options,
+            self._quartz.kCGNullWindowID,
+        )
+        if not window_list:
+            return 0, "", ""
+
+        for window in window_list:
+            try:
+                layer = int(window.get(self._quartz.kCGWindowLayer, 0))
+                pid = int(window.get(self._quartz.kCGWindowOwnerPID, 0))
+            except (TypeError, ValueError):
+                continue
+
+            if layer != 0 or pid <= 0:
+                continue
+
+            app_name = self._to_text(window.get(self._quartz.kCGWindowOwnerName))
+            window_title = self._to_text(window.get(self._quartz.kCGWindowName))
+            return pid, app_name, window_title
+
+        return 0, "", ""
+
     def get_focused_window_title(self, pid):
         if pid <= 0:
             return ""
@@ -159,15 +188,18 @@ class UsageInfoMacOSNative(UsageInfoBackend):
             return "", "", 0.0
 
     def _doGetUsageInfo(self):
-        pid, prog_name = self._api.get_frontmost_application()
-        win_title = ""
+        pid, prog_name, win_title = self._api.get_frontmost_window_info()
+
+        if pid <= 0:
+            pid, prog_name = self._api.get_frontmost_application()
 
         # Refresh AX trust to pick up permission changes during runtime.
         if not self._ax_trusted:
             self._ax_trusted = bool(self._api.is_accessibility_trusted())
 
         if self._ax_trusted:
-            win_title = self._api.get_focused_window_title(pid)
+            if not win_title:
+                win_title = self._api.get_focused_window_title(pid)
         else:
             self._log_ax_permission_once()
 
