@@ -28,8 +28,8 @@ import subprocess
 import traceback
 
 # Project Imports
-from usageinfo_base import UsageInfoBackend
-from usageinfo_macos_native import UsageInfoMacOSNative
+from workmuch.usageinfo_base import UsageInfoBackend
+from workmuch.usageinfo_macos_native import UsageInfoMacOSNative
 
 
 class UsageInfoMacOSSubprocess(UsageInfoBackend):

@@ -37,10 +37,10 @@ def createUsageInfo(platform = None):
     # Platform-specific backends are selected here so additional platforms can
     # be introduced cleanly.
     if platform.startswith('linux'):
-        from usageinfo import UsageInfo
+        from workmuch.usageinfo import UsageInfo
         return UsageInfo()
     if platform == 'darwin':
-        from usageinfo_macos import UsageInfoMacOS
+        from workmuch.usageinfo_macos import UsageInfoMacOS
         return UsageInfoMacOS()
 
     raise NotImplementedError('Unsupported platform: %s' % platform)

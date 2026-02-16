@@ -34,8 +34,8 @@ from datetime import datetime
 from optparse import OptionParser
 
 # Project Imports
-import timeutil
-from usageinfo_factory import createUsageInfo
+from workmuch import timeutil
+from workmuch.usageinfo_factory import createUsageInfo
 
 def mainloop(dataWriter, options):
     # Create handles to the graphics system, and the time we refresh them
@@ -130,7 +130,7 @@ def main(argv = None):
         logging.info('Delay complete, logging commensing')
 
     if sys.platform == 'darwin':
-        from permissions_macos import have_accessibility_perms
+        from workmuch.permissions_macos import have_accessibility_perms
         if not have_accessibility_perms():
             return 1
 

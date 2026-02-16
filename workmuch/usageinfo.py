@@ -32,7 +32,7 @@ import Xlib.display
 import Xlib.error
 
 # Project Imports
-from usageinfo_base import UsageInfoBackend
+from workmuch.usageinfo_base import UsageInfoBackend
 
 # Load libXss with ctypes
 class XScreenSaverInfo( ctypes.Structure):
@@ -45,7 +45,7 @@ class XScreenSaverInfo( ctypes.Structure):
                 ('event_mask',  ctypes.c_ulong)] # events
 xss = ctypes.cdll.LoadLibrary( 'libXss.so')
 xss.XScreenSaverAllocInfo.restype = ctypes.POINTER(XScreenSaverInfo)
-    
+
 # Load libX11 with ctypes for use with libXss
 xlib = ctypes.cdll.LoadLibrary( 'libX11.so')
 
@@ -53,7 +53,7 @@ xlib = ctypes.cdll.LoadLibrary( 'libX11.so')
 
 class CurrentWindowTitle(object):
     """Class for efficiently querying the current window title and program"""
-    
+
     def __init__(self):
         self._setup()
 
@@ -63,7 +63,7 @@ class CurrentWindowTitle(object):
 
     def makeTopLevelWindow(self, win):
         """Traces up the window tree until we get a top level window"""
-    
+
         topLevelWin = win
         winData = topLevelWin.query_tree()
 
@@ -99,9 +99,9 @@ class CurrentWindowTitle(object):
             if clsInfo is not None:
                 progName = clsInfo[1]
 
-            # Record window title bar            
+            # Record window title bar
             title = topLevelWin.get_wm_name()
- 
+
             return title,progName
         else:
             return '',''
@@ -110,7 +110,7 @@ class CurrentWindowTitle(object):
         #  import win32gui
         #  w=win32gui
         #  w.GetWindowText (w.GetForegroundWindow())
-    
+
     def release(self):
         if self.display is not None:
             self.display.close()
@@ -122,7 +122,7 @@ class CurrentWindowTitle(object):
 
 class IdleTime(object):
     """Class for efficiently querying the current x display idle time"""
-    
+
     def __init__(self):
         self._setup()
         self.xss_info = xss.XScreenSaverAllocInfo()
@@ -150,7 +150,7 @@ class UsageInfo(UsageInfoBackend):
     def __init__(self):
         self.idleTime = IdleTime()
         self.currentWindow = CurrentWindowTitle()
-        
+
     def getUsageInfo(self):
         try:
             return self._doGetUsageInfo()

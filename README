@@ -34,6 +34,8 @@ On Linux, install the required X11 libraries using::
 
 This project now uses `uv` to manage the Python runtime and dependencies from
 `pyproject.toml`.
+All Python source code now lives under the `workmuch` package, including
+`workmuch.pytime`.
 
 macOS permissions
 -----------------
@@ -59,14 +61,18 @@ Usage
 
 2. Run the program with uv:
 
-       uv run python pytime.py --help
+       uv run python -m workmuch.pytime --help
 
-Just run `pytime.py` with your preferred options and it will record data into
+Or, after `uv sync`, run the installed console command:
+
+    uv run workmuch --help
+
+Run `workmuch.pytime` with your preferred options and it will record data into
 the `~/.workmuch` directory.
 
 For manual QA, use console mode to avoid writing any files:
 
-    uv run python pytime.py --qa-console
+    uv run python -m workmuch.pytime --qa-console
 
 In this mode, activity rows are emitted to stdout as CSV and no work log or
 error log files are written.

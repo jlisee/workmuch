@@ -6,8 +6,8 @@ import subprocess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import usageinfo_macos
-from usageinfo_macos import UsageInfoMacOS, UsageInfoMacOSSubprocess
+from workmuch import usageinfo_macos
+from workmuch.usageinfo_macos import UsageInfoMacOS, UsageInfoMacOSSubprocess
 
 
 class _Proc(object):

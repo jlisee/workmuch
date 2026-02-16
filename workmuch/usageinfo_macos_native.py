@@ -27,7 +27,7 @@ import sys
 import traceback
 
 # Project Imports
-from usageinfo_base import UsageInfoBackend
+from workmuch.usageinfo_base import UsageInfoBackend
 
 
 class _MacOSNativeAPI(object):

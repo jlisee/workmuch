@@ -257,7 +257,7 @@ wheels = [
 [[package]]
 name = "workmuch"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
     { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'" },

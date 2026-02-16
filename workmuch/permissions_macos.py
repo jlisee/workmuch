@@ -21,7 +21,9 @@
 # Author: Joseph Lisee <jlisee@gmail.com>
 # File:  permissions_macos.py
 
+import logging
 import sys
+import traceback
 
 def _can_prompt_user():
     return sys.stdin.isatty() and sys.stdout.isatty()
@@ -47,7 +49,7 @@ def _create_macos_accessibility_api():
         return None
 
     try:
-        from usageinfo_macos_native import _MacOSNativeAPI
+        from workmuch.usageinfo_macos_native import _MacOSNativeAPI
         return _MacOSNativeAPI()
     except Exception:
         logging.error('Unable to initialize macOS accessibility APIs')

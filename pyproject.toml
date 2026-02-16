@@ -12,8 +12,11 @@ dependencies = [
   "pyobjc-framework-ApplicationServices>=10.3; sys_platform == 'darwin'",
 ]
 
+[project.scripts]
+workmuch = "workmuch.pytime:main"
+
 [tool.uv]
-package = false
+package = true
 
 [dependency-groups]
 dev = [
