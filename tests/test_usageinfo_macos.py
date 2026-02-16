@@ -6,7 +6,8 @@ import subprocess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from usageinfo_macos import UsageInfoMacOS
+import usageinfo_macos
+from usageinfo_macos import UsageInfoMacOS, UsageInfoMacOSSubprocess
 
 
 class _Proc(object):
@@ -15,8 +16,8 @@ class _Proc(object):
         self.stdout = stdout
 
 
-def test_macos_query_returns_tuple_without_crashing(monkeypatch):
-    usage = UsageInfoMacOS()
+def test_macos_subprocess_query_returns_tuple_without_crashing(monkeypatch):
+    usage = UsageInfoMacOSSubprocess()
 
     def fake_run(cmd, **kwargs):
         if cmd == usage._CMD_APP_NAME:
@@ -36,8 +37,8 @@ def test_macos_query_returns_tuple_without_crashing(monkeypatch):
     assert idle_time == 2.5
 
 
-def test_macos_query_handles_failures_without_crashing(monkeypatch):
-    usage = UsageInfoMacOS()
+def test_macos_subprocess_query_handles_failures_without_crashing(monkeypatch):
+    usage = UsageInfoMacOSSubprocess()
 
     def failing_run(cmd, **kwargs):
         raise OSError("unavailable")
@@ -51,9 +52,42 @@ def test_macos_query_handles_failures_without_crashing(monkeypatch):
     assert idle_time == 0.0
 
 
+def test_selector_uses_subprocess_backend(monkeypatch):
+    usage = UsageInfoMacOS(backend="subprocess")
+    assert isinstance(usage._impl, UsageInfoMacOSSubprocess)
+
+
+def test_selector_uses_native_backend_when_available(monkeypatch):
+    class _FakeNativeBackend(object):
+        def getUsageInfo(self):
+            return "win", "prog", 1.0
+
+        def release(self):
+            return None
+
+        def reset(self):
+            return None
+
+    monkeypatch.setattr(usageinfo_macos, "UsageInfoMacOSNative", _FakeNativeBackend)
+    usage = UsageInfoMacOS(backend="native")
+
+    assert usage.getUsageInfo() == ("win", "prog", 1.0)
+
+
+def test_selector_falls_back_to_subprocess_when_native_fails(monkeypatch):
+    class _FailingNativeBackend(object):
+        def __init__(self):
+            raise RuntimeError("native unavailable")
+
+    monkeypatch.setattr(usageinfo_macos, "UsageInfoMacOSNative", _FailingNativeBackend)
+    usage = UsageInfoMacOS(backend="native")
+
+    assert isinstance(usage._impl, UsageInfoMacOSSubprocess)
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS-only smoke test")
-def test_macos_query_smoke():
-    usage = UsageInfoMacOS()
+def test_macos_selector_smoke():
+    usage = UsageInfoMacOS(backend="native")
     win_title, prog_name, idle_time = usage.getUsageInfo()
 
     assert isinstance(win_title, str)

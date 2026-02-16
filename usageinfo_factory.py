@@ -34,8 +34,8 @@ def createUsageInfo(platform = None):
     if platform is None:
         platform = sys.platform
 
-    # Current implementation remains X11/Linux-only.  The factory exists so
-    # additional platform backends (Windows) can be introduced cleanly.
+    # Platform-specific backends are selected here so additional platforms can
+    # be introduced cleanly.
     if platform.startswith('linux'):
         from usageinfo import UsageInfo
         return UsageInfo()

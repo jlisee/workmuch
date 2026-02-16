@@ -22,7 +22,7 @@ time at a configurable sample rate so you can analyze what you actually use
 your computer for.
 
 - Linux: uses X11 (`python-xlib` + `libX11`/`libXss`)
-- macOS: uses native system queries (`osascript` and `ioreg`)
+- macOS: defaults to native framework APIs (AppKit + Accessibility + CoreGraphics)
 
 
 Dependencies
@@ -34,6 +34,20 @@ On Linux, install the required X11 libraries using::
 
 This project now uses `uv` to manage the Python runtime and dependencies from
 `pyproject.toml`.
+
+macOS permissions
+-----------------
+
+The native macOS backend needs Accessibility permission to read the focused
+window title. Without this permission:
+
+- app name and idle time still work
+- window title is returned as an empty string
+
+The backend can be selected with the environment variable:
+
+- `WORKMUCH_MAC_BACKEND=native` (default)
+- `WORKMUCH_MAC_BACKEND=subprocess` (temporary fallback during migration)
 
 
 Usage
@@ -63,3 +77,10 @@ Tests
 Run tests with:
 
     uv run pytest -q
+
+macOS backend benchmark
+-----------------------
+
+To compare native vs subprocess backend query overhead on macOS:
+
+    uv run python scripts/benchmark_macos_backends.py --iterations 500

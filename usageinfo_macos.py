@@ -23,15 +23,17 @@
 
 # Python Imports
 import logging
+import os
 import subprocess
 import traceback
 
 # Project Imports
 from usageinfo_base import UsageInfoBackend
+from usageinfo_macos_native import UsageInfoMacOSNative
 
 
-class UsageInfoMacOS(UsageInfoBackend):
-    """Gets current frontmost app title/name and idle time on macOS."""
+class UsageInfoMacOSSubprocess(UsageInfoBackend):
+    """Legacy subprocess backend for macOS."""
 
     _CMD_APP_NAME = [
         "osascript",
@@ -113,3 +115,48 @@ class UsageInfoMacOS(UsageInfoBackend):
     def reset(self):
         # No persistent native handles with this backend.
         return None
+
+
+class UsageInfoMacOS(UsageInfoBackend):
+    """Feature-flagged macOS backend selector."""
+
+    _VALID_BACKENDS = ("native", "subprocess")
+
+    def __init__(self, backend=None):
+        requested_backend = backend
+        if requested_backend is None:
+            requested_backend = os.environ.get("WORKMUCH_MAC_BACKEND", "native")
+
+        requested_backend = requested_backend.strip().lower()
+        if requested_backend not in self._VALID_BACKENDS:
+            logging.warning(
+                "Unknown WORKMUCH_MAC_BACKEND=%s, defaulting to native.",
+                requested_backend,
+            )
+            requested_backend = "native"
+
+        self._backend_name = requested_backend
+        self._impl = self._create_backend(requested_backend)
+
+    def _create_backend(self, backend):
+        if backend == "subprocess":
+            return UsageInfoMacOSSubprocess()
+
+        try:
+            return UsageInfoMacOSNative()
+        except Exception:
+            logging.error(
+                "Failed to initialize native macOS backend; falling back to subprocess."
+            )
+            logging.error(traceback.format_exc())
+            self._backend_name = "subprocess"
+            return UsageInfoMacOSSubprocess()
+
+    def getUsageInfo(self):
+        return self._impl.getUsageInfo()
+
+    def release(self):
+        return self._impl.release()
+
+    def reset(self):
+        return self._impl.reset()

@@ -6,6 +6,10 @@ readme = "README"
 requires-python = ">=3.10"
 dependencies = [
   "python-xlib>=0.33; sys_platform == 'linux'",
+  "pyobjc-core>=10.3; sys_platform == 'darwin'",
+  "pyobjc-framework-Cocoa>=10.3; sys_platform == 'darwin'",
+  "pyobjc-framework-Quartz>=10.3; sys_platform == 'darwin'",
+  "pyobjc-framework-ApplicationServices>=10.3; sys_platform == 'darwin'",
 ]
 
 [tool.uv]
