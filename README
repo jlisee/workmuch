@@ -59,20 +59,16 @@ Usage
 
        uv sync
 
-2. Run the program with uv:
+2. Run the program:
 
-       uv run python -m workmuch.pytime --help
-
-Or, after `uv sync`, run the installed console command:
-
-    uv run workmuch --help
+       ./run.sh --help
 
 Run `workmuch.pytime` with your preferred options and it will record data into
 the `~/.workmuch` directory.
 
 For manual QA, use console mode to avoid writing any files:
 
-    uv run python -m workmuch.pytime --qa-console
+    ./run.sh --qa-console
 
 In this mode, activity rows are emitted to stdout as CSV and no work log or
 error log files are written.
@@ -82,7 +78,7 @@ Tests
 
 Run tests with:
 
-    uv run pytest -q
+    ./test.sh -q
 
 macOS backend benchmark
 -----------------------
