@@ -85,3 +85,22 @@ func TestCompleteSampleReturnsLookupErrors(t *testing.T) {
 		t.Fatalf("unexpected sample contents: %#v", sample)
 	}
 }
+
+func TestCompleteSampleNormalizesLocalHostnameSuffix(t *testing.T) {
+	originalLookupHostname := lookupHostname
+	originalLookupUsername := lookupUsername
+	lookupHostname = func() (string, error) { return "Josephs-MacBook-Pro.LOCAL", nil }
+	lookupUsername = func() (string, error) { return "test-user", nil }
+	defer func() {
+		lookupHostname = originalLookupHostname
+		lookupUsername = originalLookupUsername
+	}()
+
+	sample, err := completeSample(UsageSample{})
+	if err != nil {
+		t.Fatalf("completeSample returned error: %v", err)
+	}
+	if sample.Host != "Josephs-MacBook-Pro" {
+		t.Fatalf("unexpected host: %q", sample.Host)
+	}
+}

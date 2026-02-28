@@ -110,7 +110,7 @@ func completeSample(sample UsageSample) (UsageSample, error) {
 	if err != nil {
 		errs = append(errs, fmt.Errorf("hostname lookup failed: %w", err))
 	} else {
-		sample.Host = host
+		sample.Host = normalizeHostname(host)
 	}
 
 	username, err := lookupUsername()
@@ -121,4 +121,11 @@ func completeSample(sample UsageSample) (UsageSample, error) {
 	}
 
 	return sample, errors.Join(errs...)
+}
+
+func normalizeHostname(host string) string {
+	if strings.HasSuffix(strings.ToLower(host), ".local") {
+		return host[:len(host)-len(".local")]
+	}
+	return host
 }
