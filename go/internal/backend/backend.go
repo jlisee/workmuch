@@ -47,7 +47,7 @@ func NewBackend(platform string, backendName string) (Backend, error) {
 	if normalizedBackend == BackendAuto {
 		switch normalizedPlatform {
 		case "darwin":
-			normalizedBackend = BackendMacOSSubprocess
+			normalizedBackend = BackendMacOSNative
 		case "linux":
 			normalizedBackend = BackendLinux
 		default:

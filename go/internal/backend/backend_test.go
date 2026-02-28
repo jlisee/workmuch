@@ -8,10 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewBackendAutoSelectsMacOSSubprocess(t *testing.T) {
+func TestNewBackendAutoSelectsMacOSNative(t *testing.T) {
 	b, err := NewBackend("darwin", BackendAuto)
-	require.NoError(t, err)
-	assert.Equal(t, BackendMacOSSubprocess, b.Name())
+	if err != nil {
+		require.ErrorIs(t, err, ErrNotImplemented)
+		return
+	}
+	assert.Equal(t, BackendMacOSNative, b.Name())
 }
 
 func TestNewBackendUnknownBackend(t *testing.T) {

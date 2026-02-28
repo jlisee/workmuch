@@ -37,6 +37,7 @@ func Run(ctx context.Context, opts Options, logger *log.Logger) error {
 	if err != nil {
 		return err
 	}
+	logBackendSelection(logger, opts.Backend, usageBackend.Name())
 	defer func() {
 		if closeErr := usageBackend.Close(); closeErr != nil {
 			logger.Printf("backend close failed: %v", closeErr)
@@ -114,6 +115,10 @@ func ComputeNextSleep(now time.Time, wakeAt time.Time, period time.Duration) (ti
 	}
 
 	return wakeAt.Sub(now), wakeAt.Add(period)
+}
+
+func logBackendSelection(logger *log.Logger, requested string, active string) {
+	logger.Printf("backend requested=%s active=%s", requested, active)
 }
 
 func openCSVOutput(opts Options) (io.Writer, func(), error) {

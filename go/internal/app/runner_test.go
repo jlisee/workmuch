@@ -1,6 +1,9 @@
 package app
 
 import (
+	"bytes"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,4 +30,13 @@ func TestComputeNextSleepWhenBehind(t *testing.T) {
 	expectedCurrentWake := time.Date(2026, time.February, 27, 10, 0, 8, 0, time.UTC)
 	assert.Equal(t, expectedCurrentWake.Sub(now), sleepDuration)
 	assert.True(t, nextWakeAt.Equal(expectedCurrentWake.Add(period)))
+}
+
+func TestLogBackendSelection(t *testing.T) {
+	var output bytes.Buffer
+	logger := log.New(&output, "", 0)
+
+	logBackendSelection(logger, "auto", "macos-native")
+
+	assert.Equal(t, "backend requested=auto active=macos-native", strings.TrimSpace(output.String()))
 }
