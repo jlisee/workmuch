@@ -4,13 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
+
+	system "workmuch-go/internal"
 )
 
 var ErrNotImplemented = errors.New("backend not implemented")
 
+var (
+	lookupHostname = os.Hostname
+	lookupUsername = system.Username
+)
+
 type UsageSample struct {
+	Host        string
+	User        string
 	WindowTitle string
 	ProgramName string
 	IdleSeconds float64
@@ -91,4 +101,24 @@ func normalizeBackendName(name string) string {
 		return BackendAuto
 	}
 	return name
+}
+
+func completeSample(sample UsageSample) (UsageSample, error) {
+	var errs []error
+
+	host, err := lookupHostname()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("hostname lookup failed: %w", err))
+	} else {
+		sample.Host = host
+	}
+
+	username, err := lookupUsername()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("username lookup failed: %w", err))
+	} else {
+		sample.User = username
+	}
+
+	return sample, errors.Join(errs...)
 }

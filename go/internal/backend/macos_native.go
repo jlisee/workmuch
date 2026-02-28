@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -16,7 +17,8 @@ func (b *MacOSNativeBackend) Name() string {
 }
 
 func (b *MacOSNativeBackend) Sample(_ context.Context) (UsageSample, error) {
-	return UsageSample{}, fmt.Errorf("%w: %s", ErrNotImplemented, BackendMacOSNative)
+	sample, err := completeSample(UsageSample{})
+	return sample, errors.Join(err, fmt.Errorf("%w: %s", ErrNotImplemented, BackendMacOSNative))
 }
 
 func (b *MacOSNativeBackend) Reset() error {

@@ -37,7 +37,7 @@ func run() int {
 	logger.Printf("Program started")
 	logger.Printf("Recording at %fHz", opts.Rate)
 	logger.Printf("Waiting %f seconds before starting logging", opts.StartDelay)
-	logger.Printf("CSV columns: window_title, program_name, idle_seconds, timestamp_seconds")
+	logger.Printf("CSV columns: host, user, window_title, program_name, idle_seconds, timestamp_seconds")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

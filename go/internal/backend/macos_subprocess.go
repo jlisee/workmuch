@@ -92,6 +92,11 @@ func (b *MacOSSubprocessBackend) Sample(ctx context.Context) (UsageSample, error
 		sample.IdleSeconds = idleSeconds
 	}
 
+	sample, err = completeSample(sample)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	return sample, errors.Join(errs...)
 }
 

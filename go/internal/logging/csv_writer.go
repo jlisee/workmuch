@@ -18,6 +18,8 @@ func NewCSVWriter(w io.Writer) *CSVWriter {
 
 func (w *CSVWriter) WriteSample(sample backend.UsageSample, timestampSeconds float64) error {
 	record := []string{
+		sample.Host,
+		sample.User,
 		sample.WindowTitle,
 		sample.ProgramName,
 		strconv.FormatFloat(sample.IdleSeconds, 'f', 6, 64),

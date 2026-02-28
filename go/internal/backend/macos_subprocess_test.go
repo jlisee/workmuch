@@ -32,6 +32,15 @@ func commandKey(name string, args ...string) string {
 }
 
 func TestMacOSSubprocessSampleSuccess(t *testing.T) {
+	originalLookupHostname := lookupHostname
+	originalLookupUsername := lookupUsername
+	lookupHostname = func() (string, error) { return "test-host", nil }
+	lookupUsername = func() (string, error) { return "test-user", nil }
+	defer func() {
+		lookupHostname = originalLookupHostname
+		lookupUsername = originalLookupUsername
+	}()
+
 	fake := &fakeExecutor{
 		outputs: map[string]fakeCommandOutput{
 			commandKey(appNameCommand[0], appNameCommand[1:]...):         {stdout: "Safari\n"},
@@ -46,6 +55,12 @@ func TestMacOSSubprocessSampleSuccess(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	if sample.Host != "test-host" {
+		t.Fatalf("unexpected host: %q", sample.Host)
+	}
+	if sample.User != "test-user" {
+		t.Fatalf("unexpected user: %q", sample.User)
+	}
 	if sample.ProgramName != "Safari" {
 		t.Fatalf("unexpected program name: %q", sample.ProgramName)
 	}

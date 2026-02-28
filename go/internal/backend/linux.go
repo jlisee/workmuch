@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -16,7 +17,8 @@ func (b *LinuxBackend) Name() string {
 }
 
 func (b *LinuxBackend) Sample(_ context.Context) (UsageSample, error) {
-	return UsageSample{}, fmt.Errorf("%w: %s", ErrNotImplemented, BackendLinux)
+	sample, err := completeSample(UsageSample{})
+	return sample, errors.Join(err, fmt.Errorf("%w: %s", ErrNotImplemented, BackendLinux))
 }
 
 func (b *LinuxBackend) Reset() error {
