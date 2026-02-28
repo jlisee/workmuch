@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"workmuch-go/internal/backend"
 )
 
@@ -21,38 +24,18 @@ func TestCSVWriterWritesExpectedColumnOrder(t *testing.T) {
 		IdleSeconds: 1.25,
 	}
 
-	if err := writer.WriteSample(sample, 1700000000.5); err != nil {
-		t.Fatalf("WriteSample failed: %v", err)
-	}
-	if err := writer.Flush(); err != nil {
-		t.Fatalf("Flush failed: %v", err)
-	}
+	require.NoError(t, writer.WriteSample(sample, 1700000000.5))
+	require.NoError(t, writer.Flush())
 
 	reader := csv.NewReader(strings.NewReader(buf.String()))
 	record, err := reader.Read()
-	if err != nil {
-		t.Fatalf("failed to read csv record: %v", err)
-	}
-
-	if len(record) != 6 {
-		t.Fatalf("expected 6 columns, got %d", len(record))
-	}
-	if record[0] != "host" {
-		t.Fatalf("unexpected col0: %q", record[0])
-	}
-	if record[1] != "user" {
-		t.Fatalf("unexpected col1: %q", record[1])
-	}
-	if record[2] != "window" {
-		t.Fatalf("unexpected col2: %q", record[2])
-	}
-	if record[3] != "program" {
-		t.Fatalf("unexpected col3: %q", record[3])
-	}
-	if record[4] != "1.250000" {
-		t.Fatalf("unexpected col4: %q", record[4])
-	}
-	if record[5] != "1700000000.500000" {
-		t.Fatalf("unexpected col5: %q", record[5])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"host",
+		"user",
+		"window",
+		"program",
+		"1.250000",
+		"1700000000.500000",
+	}, record)
 }

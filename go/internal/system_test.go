@@ -4,6 +4,9 @@ import (
 	"errors"
 	"os/user"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUsernameUsesUSER(t *testing.T) {
@@ -20,12 +23,8 @@ func TestUsernameUsesUSER(t *testing.T) {
 	t.Setenv("USERNAME", "")
 
 	username, err := Username()
-	if err != nil {
-		t.Fatalf("Username returned error: %v", err)
-	}
-	if username != "env-user" {
-		t.Fatalf("unexpected username: %q", username)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "env-user", username)
 }
 
 func TestUsernameUsesUSERNAMEWhenUSERUnset(t *testing.T) {
@@ -42,12 +41,8 @@ func TestUsernameUsesUSERNAMEWhenUSERUnset(t *testing.T) {
 	t.Setenv("USERNAME", "windows-user")
 
 	username, err := Username()
-	if err != nil {
-		t.Fatalf("Username returned error: %v", err)
-	}
-	if username != "windows-user" {
-		t.Fatalf("unexpected username: %q", username)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "windows-user", username)
 }
 
 func TestUsernameFallsBackToCurrentUser(t *testing.T) {
@@ -63,12 +58,8 @@ func TestUsernameFallsBackToCurrentUser(t *testing.T) {
 	t.Setenv("USERNAME", "")
 
 	username, err := Username()
-	if err != nil {
-		t.Fatalf("Username returned error: %v", err)
-	}
-	if username != "lookup-user" {
-		t.Fatalf("unexpected username: %q", username)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "lookup-user", username)
 }
 
 func TestUsernameReturnsLookupError(t *testing.T) {
@@ -86,7 +77,5 @@ func TestUsernameReturnsLookupError(t *testing.T) {
 	t.Setenv("USERNAME", "")
 
 	_, err := Username()
-	if !errors.Is(err, expectedErr) {
-		t.Fatalf("expected error %v, got %v", expectedErr, err)
-	}
+	assert.ErrorIs(t, err, expectedErr)
 }

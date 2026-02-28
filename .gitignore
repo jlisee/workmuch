@@ -6,3 +6,4 @@ go/bin/
 go/coverage.out
 .gocache/
 .gocache-local/
+.gomodcache/

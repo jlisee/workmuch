@@ -1,78 +1,49 @@
 package app
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestParseOptionsDefaults(t *testing.T) {
 	opts, showHelp, err := ParseOptions(nil)
-	if err != nil {
-		t.Fatalf("ParseOptions returned error: %v", err)
-	}
-	if showHelp {
-		t.Fatalf("showHelp should be false by default")
-	}
-	if opts.Rate != 1.0 {
-		t.Fatalf("unexpected default rate: %f", opts.Rate)
-	}
-	if opts.StartDelay != 0.0 {
-		t.Fatalf("unexpected default delay: %f", opts.StartDelay)
-	}
+	require.NoError(t, err)
+	assert.False(t, showHelp)
+	assert.Equal(t, 1.0, opts.Rate)
+	assert.Equal(t, 0.0, opts.StartDelay)
 }
 
 func TestParseOptionsShortFlags(t *testing.T) {
 	opts, showHelp, err := ParseOptions([]string{"-r", "2.5", "-d", "1.25", "--qa-console"})
-	if err != nil {
-		t.Fatalf("ParseOptions returned error: %v", err)
-	}
-	if showHelp {
-		t.Fatalf("showHelp should be false")
-	}
-	if opts.Rate != 2.5 {
-		t.Fatalf("unexpected rate: %f", opts.Rate)
-	}
-	if opts.StartDelay != 1.25 {
-		t.Fatalf("unexpected delay: %f", opts.StartDelay)
-	}
-	if !opts.QAConsole {
-		t.Fatalf("expected QA console true")
-	}
+	require.NoError(t, err)
+	assert.False(t, showHelp)
+	assert.Equal(t, 2.5, opts.Rate)
+	assert.Equal(t, 1.25, opts.StartDelay)
+	assert.True(t, opts.QAConsole)
 }
 
 func TestParseOptionsLongFlags(t *testing.T) {
 	opts, _, err := ParseOptions([]string{"--rate=3", "--start-delay=4", "--backend", "macos-subprocess"})
-	if err != nil {
-		t.Fatalf("ParseOptions returned error: %v", err)
-	}
-	if opts.Rate != 3 {
-		t.Fatalf("unexpected rate: %f", opts.Rate)
-	}
-	if opts.StartDelay != 4 {
-		t.Fatalf("unexpected delay: %f", opts.StartDelay)
-	}
-	if opts.Backend != "macos-subprocess" {
-		t.Fatalf("unexpected backend: %s", opts.Backend)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 3.0, opts.Rate)
+	assert.Equal(t, 4.0, opts.StartDelay)
+	assert.Equal(t, "macos-subprocess", opts.Backend)
 }
 
 func TestParseOptionsHelp(t *testing.T) {
 	_, showHelp, err := ParseOptions([]string{"--help"})
-	if err != nil {
-		t.Fatalf("ParseOptions returned error: %v", err)
-	}
-	if !showHelp {
-		t.Fatalf("expected showHelp to be true")
-	}
+	require.NoError(t, err)
+	assert.True(t, showHelp)
 }
 
 func TestParseOptionsRateMustBePositive(t *testing.T) {
 	_, _, err := ParseOptions([]string{"--rate", "0"})
-	if err == nil {
-		t.Fatalf("expected validation error")
-	}
+	require.Error(t, err)
 }
 
 func TestParseOptionsUnknownFlag(t *testing.T) {
 	_, _, err := ParseOptions([]string{"--nope"})
-	if err == nil {
-		t.Fatalf("expected unknown flag error")
-	}
+	require.Error(t, err)
 }

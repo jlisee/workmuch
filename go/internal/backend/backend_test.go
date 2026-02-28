@@ -3,30 +3,25 @@ package backend
 import (
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewBackendAutoSelectsMacOSSubprocess(t *testing.T) {
 	b, err := NewBackend("darwin", BackendAuto)
-	if err != nil {
-		t.Fatalf("NewBackend returned error: %v", err)
-	}
-	if b.Name() != BackendMacOSSubprocess {
-		t.Fatalf("expected %q backend, got %q", BackendMacOSSubprocess, b.Name())
-	}
+	require.NoError(t, err)
+	assert.Equal(t, BackendMacOSSubprocess, b.Name())
 }
 
 func TestNewBackendUnknownBackend(t *testing.T) {
 	_, err := NewBackend("darwin", "does-not-exist")
-	if err == nil {
-		t.Fatalf("expected error for unknown backend")
-	}
+	require.Error(t, err)
 }
 
 func TestNewBackendLinuxNotImplemented(t *testing.T) {
 	_, err := NewBackend("linux", BackendLinux)
-	if err == nil {
-		t.Fatalf("expected not implemented error")
-	}
+	require.Error(t, err)
 }
 
 func TestCompleteSampleAddsIdentity(t *testing.T) {
@@ -44,18 +39,14 @@ func TestCompleteSampleAddsIdentity(t *testing.T) {
 		ProgramName: "program",
 		IdleSeconds: 3.5,
 	})
-	if err != nil {
-		t.Fatalf("completeSample returned error: %v", err)
-	}
-	if sample.Host != "test-host" {
-		t.Fatalf("unexpected host: %q", sample.Host)
-	}
-	if sample.User != "test-user" {
-		t.Fatalf("unexpected user: %q", sample.User)
-	}
-	if sample.WindowTitle != "window" || sample.ProgramName != "program" || sample.IdleSeconds != 3.5 {
-		t.Fatalf("unexpected sample contents: %#v", sample)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, UsageSample{
+		Host:        "test-host",
+		User:        "test-user",
+		WindowTitle: "window",
+		ProgramName: "program",
+		IdleSeconds: 3.5,
+	}, sample)
 }
 
 func TestCompleteSampleReturnsLookupErrors(t *testing.T) {
@@ -72,18 +63,10 @@ func TestCompleteSampleReturnsLookupErrors(t *testing.T) {
 	}()
 
 	sample, err := completeSample(UsageSample{ProgramName: "program"})
-	if !errors.Is(err, hostErr) {
-		t.Fatalf("expected host error, got %v", err)
-	}
-	if !errors.Is(err, userErr) {
-		t.Fatalf("expected user error, got %v", err)
-	}
-	if sample.Host != "" || sample.User != "" {
-		t.Fatalf("expected empty identity fields, got %#v", sample)
-	}
-	if sample.ProgramName != "program" {
-		t.Fatalf("unexpected sample contents: %#v", sample)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, hostErr)
+	assert.ErrorIs(t, err, userErr)
+	assert.Equal(t, UsageSample{ProgramName: "program"}, sample)
 }
 
 func TestCompleteSampleNormalizesLocalHostnameSuffix(t *testing.T) {
@@ -97,10 +80,6 @@ func TestCompleteSampleNormalizesLocalHostnameSuffix(t *testing.T) {
 	}()
 
 	sample, err := completeSample(UsageSample{})
-	if err != nil {
-		t.Fatalf("completeSample returned error: %v", err)
-	}
-	if sample.Host != "Josephs-MacBook-Pro" {
-		t.Fatalf("unexpected host: %q", sample.Host)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Josephs-MacBook-Pro", sample.Host)
 }

@@ -3,6 +3,8 @@ package app
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestComputeNextSleepOnSchedule(t *testing.T) {
@@ -11,12 +13,8 @@ func TestComputeNextSleepOnSchedule(t *testing.T) {
 	period := 2 * time.Second
 
 	sleepDuration, nextWakeAt := ComputeNextSleep(now, wakeAt, period)
-	if sleepDuration != 2*time.Second {
-		t.Fatalf("unexpected sleep duration: %v", sleepDuration)
-	}
-	if !nextWakeAt.Equal(wakeAt.Add(period)) {
-		t.Fatalf("unexpected next wake: %v", nextWakeAt)
-	}
+	assert.Equal(t, 2*time.Second, sleepDuration)
+	assert.True(t, nextWakeAt.Equal(wakeAt.Add(period)))
 }
 
 func TestComputeNextSleepWhenBehind(t *testing.T) {
@@ -25,14 +23,8 @@ func TestComputeNextSleepWhenBehind(t *testing.T) {
 	period := 2 * time.Second
 
 	sleepDuration, nextWakeAt := ComputeNextSleep(now, wakeAt, period)
-	if sleepDuration < 0 {
-		t.Fatalf("sleep duration must never be negative: %v", sleepDuration)
-	}
+	assert.GreaterOrEqual(t, sleepDuration, time.Duration(0))
 	expectedCurrentWake := time.Date(2026, time.February, 27, 10, 0, 8, 0, time.UTC)
-	if sleepDuration != expectedCurrentWake.Sub(now) {
-		t.Fatalf("unexpected sleep duration: %v", sleepDuration)
-	}
-	if !nextWakeAt.Equal(expectedCurrentWake.Add(period)) {
-		t.Fatalf("unexpected next wake: %v", nextWakeAt)
-	}
+	assert.Equal(t, expectedCurrentWake.Sub(now), sleepDuration)
+	assert.True(t, nextWakeAt.Equal(expectedCurrentWake.Add(period)))
 }

@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type fakeExecutor struct {
@@ -51,25 +54,14 @@ func TestMacOSSubprocessSampleSuccess(t *testing.T) {
 
 	backend := newMacOSSubprocessBackend(fake)
 	sample, err := backend.Sample(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if sample.Host != "test-host" {
-		t.Fatalf("unexpected host: %q", sample.Host)
-	}
-	if sample.User != "test-user" {
-		t.Fatalf("unexpected user: %q", sample.User)
-	}
-	if sample.ProgramName != "Safari" {
-		t.Fatalf("unexpected program name: %q", sample.ProgramName)
-	}
-	if sample.WindowTitle != "WorkMuch" {
-		t.Fatalf("unexpected window title: %q", sample.WindowTitle)
-	}
-	if sample.IdleSeconds != 2.5 {
-		t.Fatalf("unexpected idle seconds: %f", sample.IdleSeconds)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, UsageSample{
+		Host:        "test-host",
+		User:        "test-user",
+		ProgramName: "Safari",
+		WindowTitle: "WorkMuch",
+		IdleSeconds: 2.5,
+	}, sample)
 }
 
 func TestMacOSSubprocessSampleFailureReturnsSafeDefaults(t *testing.T) {
@@ -83,27 +75,19 @@ func TestMacOSSubprocessSampleFailureReturnsSafeDefaults(t *testing.T) {
 
 	backend := newMacOSSubprocessBackend(fake)
 	sample, err := backend.Sample(context.Background())
-	if err == nil {
-		t.Fatalf("expected aggregate error")
-	}
-	if sample.ProgramName != "" || sample.WindowTitle != "" || sample.IdleSeconds != 0 {
-		t.Fatalf("expected safe default sample, got %#v", sample)
-	}
+	require.Error(t, err)
+	assert.Empty(t, sample.ProgramName)
+	assert.Empty(t, sample.WindowTitle)
+	assert.Zero(t, sample.IdleSeconds)
 }
 
 func TestParseIdleSeconds(t *testing.T) {
 	idleSeconds, err := ParseIdleSeconds("\"HIDIdleTime\" = 12345000000")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if idleSeconds != 12.345 {
-		t.Fatalf("unexpected idle seconds: %f", idleSeconds)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 12.345, idleSeconds)
 }
 
 func TestParseIdleSecondsMissingField(t *testing.T) {
 	_, err := ParseIdleSeconds("nothing useful")
-	if err == nil {
-		t.Fatalf("expected parse error")
-	}
+	require.Error(t, err)
 }
