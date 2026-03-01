@@ -2,8 +2,11 @@ __pycache__/
 .pycache/
 .venv/
 workmuch.egg-info/
+
 go/bin/
 go/coverage.out
 .gocache/
 .gocache-local/
 .gomodcache/
+
+.DS_store
