@@ -12,6 +12,14 @@ import (
 
 	"workmuch-go/internal/app"
 	"workmuch-go/internal/platform"
+	"workmuch-go/internal/tray"
+)
+
+type runMode int
+
+const (
+	runModeConsole runMode = iota
+	runModeTray
 )
 
 func main() {
@@ -42,13 +50,31 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := app.Run(ctx, opts, logger); err != nil {
+	if err := executeRunMode(ctx, opts, logger); err != nil {
 		logger.Printf("fatal error: %v", err)
 		return 1
 	}
 
 	logger.Printf("Program shutdown complete")
 	return 0
+}
+
+func selectRunMode(opts app.Options) runMode {
+	if opts.QAConsole {
+		return runModeConsole
+	}
+	return runModeTray
+}
+
+func executeRunMode(ctx context.Context, opts app.Options, logger *log.Logger) error {
+	switch selectRunMode(opts) {
+	case runModeConsole:
+		return app.Run(ctx, opts, logger)
+	case runModeTray:
+		return tray.RunWithContext(ctx, opts, logger)
+	default:
+		return fmt.Errorf("unsupported run mode: %d", selectRunMode(opts))
+	}
 }
 
 func configureLogger(qaConsole bool) (*log.Logger, func()) {

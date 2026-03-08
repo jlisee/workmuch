@@ -100,10 +100,13 @@ func ParseOptions(args []string) (Options, bool, error) {
 func HelpText(program string) string {
 	return fmt.Sprintf(`Usage: %s [options]
 
+Default behavior:
+  Launch the tray icon and log activity in the background.
+
 Options:
   -r, --rate <float>          Samples per second (default: 1.0)
   -d, --start-delay <float>   Seconds to wait before logging (default: 0.0)
-      --qa-console            Write CSV to stdout; do not write files
+      --qa-console            Disable tray mode and write CSV to stdout
       --backend <name>        One of: auto, macos-subprocess, macos-native, linux
   -h, --help                  Show this help
 `, program)

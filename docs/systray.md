@@ -1,47 +1,35 @@
-# Systray / Menu Bar Plan (Planned)
+# Systray / Menu Bar Integration
 
-This document outlines future systray work. No tray integration is implemented in this change.
+Systray support is now implemented for the Go app, using
+`github.com/tailscale/systray`.
 
-## Goals
+## Current behavior
 
-- Offer quick visibility into collector state.
-- Provide lightweight controls without requiring a terminal.
-- Keep tray behavior separate from collector core loop.
+- `./run_go.sh` launches the tray app by default.
+- Logging starts immediately on launch.
+- Tray menu items in v1:
+  - `About` (disabled informational item)
+  - `Quit`
+- `--qa-console` bypasses tray mode and runs the foreground collector with CSV
+  output to stdout.
 
-## Candidate Go libraries
+## Implementation notes
 
-- [`fyne-io/systray`](https://github.com/fyne-io/systray): mature cross-platform tray abstraction.
-- [`getlantern/systray`](https://github.com/getlantern/systray): widely used minimal tray package.
+- Tray orchestration lives in `go/internal/tray`.
+- Collector lifecycle control is handled by `go/internal/app.Controller`.
+- The app loop still runs in-process.
+- The tray icon is embedded from:
+  - `go/internal/tray/assets/icon32x32.png` (active tray icon)
+  - `go/internal/tray/assets/icon16x16.png` (reserved for future use)
 
-Selection criteria:
+## Shutdown behavior
 
-- macOS stability in long-running sessions
-- simple menu event handling
-- clean build story with Go toolchain
+- Selecting `Quit` exits the tray and shuts down the collector.
+- External cancellation (for example SIGTERM/interrupt in terminal-launched
+  sessions) also shuts down the collector and exits tray mode.
 
-## Proposed v1 tray menu
+## Follow-up ideas
 
-- Status: Running / Stopped (read-only text item)
-- Start Logging
-- Stop Logging
-- Open Log Folder (`~/.workmuch`)
-- Quit
-
-## Integration approach
-
-- Keep collector loop in a reusable package and control it via start/stop channels.
-- Keep tray process as the primary app for user interaction.
-- Run collector in-process first; evaluate helper process model later if needed.
-
-## macOS constraints to account for
-
-- Some tray libs require running UI loop on the main thread.
-- Menu updates must remain responsive while sampling loop runs.
-- Permission prompts and tray UX should avoid deadlocks with backend calls.
-
-## Later enhancements
-
-- Sample rate controls
-- Backend selection UI
-- “Open latest log file” action
-- Recent error indicator in menu
+- Add tray controls for start/stop.
+- Add "Open log folder" and "Open latest work log".
+- Show backend/status details in tray menu.

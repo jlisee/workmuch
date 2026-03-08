@@ -38,6 +38,15 @@ func TestParseOptionsHelp(t *testing.T) {
 	assert.True(t, showHelp)
 }
 
+func TestHelpTextDocumentsTrayDefaultAndQAMode(t *testing.T) {
+	t.Parallel()
+
+	helpText := HelpText("workmuch-go")
+
+	assert.Contains(t, helpText, "Launch the tray icon and log activity in the background.")
+	assert.Contains(t, helpText, "--qa-console            Disable tray mode and write CSV to stdout")
+}
+
 func TestParseOptionsRateMustBePositive(t *testing.T) {
 	_, _, err := ParseOptions([]string{"--rate", "0"})
 	require.Error(t, err)

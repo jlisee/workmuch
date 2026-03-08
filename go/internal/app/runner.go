@@ -18,6 +18,16 @@ import (
 const backendResetInterval = 5 * time.Second
 
 func Run(ctx context.Context, opts Options, logger *log.Logger) error {
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil
+	}
+
+	controller := NewController(opts, logger, RunCollector)
+	controller.Start(ctx)
+	return controller.Wait()
+}
+
+func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 	if logger == nil {
 		logger = log.New(os.Stderr, "", log.LstdFlags)
 	}
