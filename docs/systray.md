@@ -8,7 +8,7 @@ Systray support is now implemented for the Go app, using
 - `./run_go.sh` launches the tray app by default.
 - Logging starts immediately on launch.
 - Tray menu items in v1:
-  - `About` (disabled informational item)
+  - `About` (opens a basic about screen)
   - `Quit`
 - `--qa-console` bypasses tray mode and runs the foreground collector with CSV
   output to stdout.
@@ -25,6 +25,8 @@ Systray support is now implemented for the Go app, using
 ## Shutdown behavior
 
 - Selecting `Quit` exits the tray and shuts down the collector.
+- Selecting `About` opens a basic screen with:
+  - `Current app and window title based activity tracker`
 - External cancellation (for example SIGTERM/interrupt in terminal-launched
   sessions) also shuts down the collector and exits tray mode.
 

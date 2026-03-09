@@ -39,6 +39,7 @@ type controllerFactory func(opts app.Options, logger *log.Logger) controller
 type runner struct {
 	driver        driver
 	newController controllerFactory
+	showAbout     func() error
 }
 
 func Run(opts app.Options, logger *log.Logger) error {
@@ -55,6 +56,7 @@ func newRunner(driver driver, newController controllerFactory) runner {
 	return runner{
 		driver:        driver,
 		newController: newController,
+		showAbout:     showAboutScreen,
 	}
 }
 
@@ -70,6 +72,7 @@ func (r runner) Run(ctx context.Context, opts app.Options, logger *log.Logger) e
 	resultCh := make(chan error, 1)
 	var resultOnce sync.Once
 	var quitOnce sync.Once
+	var shutdownOnce sync.Once
 	finish := func(err error) {
 		resultOnce.Do(func() {
 			resultCh <- err
@@ -80,16 +83,21 @@ func (r runner) Run(ctx context.Context, opts app.Options, logger *log.Logger) e
 			r.driver.Quit()
 		})
 	}
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			cancel()
+			finish(collector.Wait())
+		})
+	}
 
 	r.driver.Run(func() {
 		r.driver.SetIcon(trayIcon)
 		r.driver.SetTitle("")
 		r.driver.SetTooltip("Logging active")
 
-		about := r.driver.AddMenuItem("About", "Logging active")
-		about.Disable()
+		about := r.driver.AddMenuItem("About", "About Workmuch")
 
-		r.driver.AddMenuItem("Quit", "Quit")
+		quit := r.driver.AddMenuItem("Quit", "Quit")
 		errCh := collector.Start(collectorCtx)
 
 		go func() {
@@ -102,13 +110,33 @@ func (r runner) Run(ctx context.Context, opts app.Options, logger *log.Logger) e
 
 		go func() {
 			<-ctx.Done()
-			cancel()
-			finish(collector.Wait())
+			shutdown()
 			quitTray()
 		}()
+
+		go func() {
+			select {
+			case <-quit.ClickedCh():
+				shutdown()
+				quitTray()
+			case <-collectorCtx.Done():
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-about.ClickedCh():
+					if err := r.showAbout(); err != nil {
+						logger.Printf("tray about failed: %v", err)
+					}
+				case <-collectorCtx.Done():
+					return
+				}
+			}
+		}()
 	}, func() {
-		cancel()
-		finish(collector.Wait())
+		shutdown()
 	})
 
 	return <-resultCh

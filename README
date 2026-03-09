@@ -76,7 +76,7 @@ The Go entrypoint now runs as a tray app by default:
 When launched this way, logging starts immediately and continues in the
 background. The tray menu includes:
 
-- `About` (informational item)
+- `About` (opens a basic about screen)
 - `Quit`
 
 Use QA console mode to bypass tray UI and stream CSV to stdout:
