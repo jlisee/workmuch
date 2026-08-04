@@ -16,13 +16,22 @@ func TestSelectRunModeDefaultsToTray(t *testing.T) {
 	assert.Equal(t, runModeTray, selectRunMode(app.DefaultOptions()))
 }
 
-func TestSelectRunModeUsesConsoleForQA(t *testing.T) {
+func TestSelectRunModeUsesForegroundForQA(t *testing.T) {
 	t.Parallel()
 
 	opts := app.DefaultOptions()
 	opts.QAConsole = true
 
-	assert.Equal(t, runModeConsole, selectRunMode(opts))
+	assert.Equal(t, runModeForeground, selectRunMode(opts))
+}
+
+func TestSelectRunModeUsesForegroundWithoutTray(t *testing.T) {
+	t.Parallel()
+
+	opts := app.DefaultOptions()
+	opts.NoTray = true
+
+	assert.Equal(t, runModeForeground, selectRunMode(opts))
 }
 
 func TestParseCommandDefaultsToRun(t *testing.T) {
@@ -34,6 +43,17 @@ func TestParseCommandDefaultsToRun(t *testing.T) {
 	assert.False(t, showHelp)
 	assert.Equal(t, commandRun, cmd.kind)
 	assert.True(t, cmd.opts.QAConsole)
+}
+
+func TestParseCommandAcceptsNoTray(t *testing.T) {
+	t.Parallel()
+
+	cmd, showHelp, err := parseCommand([]string{"--no-tray"})
+	require.NoError(t, err)
+
+	assert.False(t, showHelp)
+	assert.Equal(t, commandRun, cmd.kind)
+	assert.True(t, cmd.opts.NoTray)
 }
 
 func TestParseCommandRecognizesDoctor(t *testing.T) {

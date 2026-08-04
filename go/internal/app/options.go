@@ -12,6 +12,7 @@ type Options struct {
 	Rate       float64
 	StartDelay float64
 	QAConsole  bool
+	NoTray     bool
 	Backend    string
 }
 
@@ -20,6 +21,7 @@ func DefaultOptions() Options {
 		Rate:       1.0,
 		StartDelay: 0.0,
 		QAConsole:  false,
+		NoTray:     false,
 		Backend:    backend.BackendAuto,
 	}
 }
@@ -36,6 +38,8 @@ func ParseOptions(args []string) (Options, bool, error) {
 			showHelp = true
 		case arg == "--qa-console":
 			opts.QAConsole = true
+		case arg == "--no-tray":
+			opts.NoTray = true
 		case arg == "-r" || arg == "--rate":
 			value, next, err := readFloatArg(args, i, arg)
 			if err != nil {
@@ -110,6 +114,7 @@ Options:
   -r, --rate <float>          Samples per second (default: 1.0)
   -d, --start-delay <float>   Seconds to wait before logging (default: 0.0)
       --qa-console            Disable tray mode and write CSV to stdout
+      --no-tray               Disable tray mode and write CSV to the daily worklog
       --backend <name>        One of: auto, macos-subprocess, macos-native, linux
   -h, --help                  Show this help
 `, program)

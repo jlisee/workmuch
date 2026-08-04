@@ -16,12 +16,13 @@ func TestParseOptionsDefaults(t *testing.T) {
 }
 
 func TestParseOptionsShortFlags(t *testing.T) {
-	opts, showHelp, err := ParseOptions([]string{"-r", "2.5", "-d", "1.25", "--qa-console"})
+	opts, showHelp, err := ParseOptions([]string{"-r", "2.5", "-d", "1.25", "--qa-console", "--no-tray"})
 	require.NoError(t, err)
 	assert.False(t, showHelp)
 	assert.Equal(t, 2.5, opts.Rate)
 	assert.Equal(t, 1.25, opts.StartDelay)
 	assert.True(t, opts.QAConsole)
+	assert.True(t, opts.NoTray)
 }
 
 func TestParseOptionsLongFlags(t *testing.T) {
@@ -46,6 +47,7 @@ func TestHelpTextDocumentsTrayDefaultAndQAMode(t *testing.T) {
 	assert.Contains(t, helpText, "Launch the tray icon and log activity in the background.")
 	assert.Contains(t, helpText, "doctor")
 	assert.Contains(t, helpText, "--qa-console            Disable tray mode and write CSV to stdout")
+	assert.Contains(t, helpText, "--no-tray               Disable tray mode and write CSV to the daily worklog")
 }
 
 func TestParseOptionsRateMustBePositive(t *testing.T) {

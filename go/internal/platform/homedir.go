@@ -16,10 +16,25 @@ func LogDir(homeDir string) string {
 
 func EnsureLogDir(homeDir string) (string, error) {
 	logDir := LogDir(homeDir)
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(logDir, 0o700); err != nil {
 		return "", err
 	}
 	return logDir, nil
+}
+
+func OpenPrivateAppendFile(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	return file, nil
 }
 
 func WorkLogPath(now time.Time, logDir string) string {

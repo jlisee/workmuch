@@ -19,7 +19,7 @@ import (
 type runMode int
 
 const (
-	runModeConsole runMode = iota
+	runModeForeground runMode = iota
 	runModeTray
 )
 
@@ -94,15 +94,15 @@ func parseCommand(args []string) (command, bool, error) {
 }
 
 func selectRunMode(opts app.Options) runMode {
-	if opts.QAConsole {
-		return runModeConsole
+	if opts.QAConsole || opts.NoTray {
+		return runModeForeground
 	}
 	return runModeTray
 }
 
 func executeRunMode(ctx context.Context, opts app.Options, logger *log.Logger) error {
 	switch selectRunMode(opts) {
-	case runModeConsole:
+	case runModeForeground:
 		return app.Run(ctx, opts, logger)
 	case runModeTray:
 		return tray.RunWithContext(ctx, opts, logger)
@@ -126,7 +126,7 @@ func configureLogger(qaConsole bool) (*log.Logger, func()) {
 		if err == nil {
 			if logDir, ensureErr := platform.EnsureLogDir(homeDir); ensureErr == nil {
 				errorLogPath := platform.ErrorLogPath(logDir)
-				if file, openErr := os.OpenFile(errorLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); openErr == nil {
+				if file, openErr := platform.OpenPrivateAppendFile(errorLogPath); openErr == nil {
 					logWriter = file
 					cleanup = func() {
 						_ = file.Close()

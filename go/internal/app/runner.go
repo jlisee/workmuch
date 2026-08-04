@@ -189,7 +189,7 @@ func openCSVOutput(opts Options) (csvOutput, error) {
 	}
 
 	workLogPath := platform.WorkLogPath(time.Now(), logDir)
-	workLogFile, err := os.OpenFile(workLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	workLogFile, err := platform.OpenPrivateAppendFile(workLogPath)
 	if err != nil {
 		return csvOutput{}, fmt.Errorf("open work log %s: %w", workLogPath, err)
 	}
