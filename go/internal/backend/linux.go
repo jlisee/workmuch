@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -58,20 +59,44 @@ func (b *LinuxBackend) Sample(_ context.Context) (UsageSample, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if b.client == nil {
+		reconnectErr := b.reconnectLocked()
+		sample, sampleErr, _ := b.sampleLocked()
+		return sample, errors.Join(reconnectErr, sampleErr)
+	}
+
+	sample, err, connectionLost := b.sampleLocked()
+	if !connectionLost {
+		return sample, err
+	}
+
+	reconnectErr := b.reconnectLocked()
+	if b.client == nil {
+		return sample, errors.Join(err, reconnectErr)
+	}
+
+	sample, err, _ = b.sampleLocked()
+	return sample, errors.Join(reconnectErr, err)
+}
+
+func (b *LinuxBackend) sampleLocked() (UsageSample, error, bool) {
 	sample := UsageSample{}
 	var errs []error
+	connectionLost := false
 
 	if b.client == nil {
 		errs = append(errs, errors.New("X11 client is not connected"))
 	} else {
 		window, err := b.client.ActiveWindow()
 		if err != nil {
+			connectionLost = connectionLost || errors.Is(err, io.EOF)
 			errs = append(errs, fmt.Errorf("active window query failed: %w", err))
 		} else if window == 0 {
 			errs = append(errs, errors.New("active window query returned no window"))
 		} else {
 			title, titleErr := b.client.WindowTitle(window)
 			if titleErr != nil {
+				connectionLost = connectionLost || errors.Is(titleErr, io.EOF)
 				errs = append(errs, fmt.Errorf("window title query failed: %w", titleErr))
 			} else {
 				sample.WindowTitle = title
@@ -79,6 +104,7 @@ func (b *LinuxBackend) Sample(_ context.Context) (UsageSample, error) {
 
 			program, programErr := b.client.ProgramName(window)
 			if programErr != nil {
+				connectionLost = connectionLost || errors.Is(programErr, io.EOF)
 				errs = append(errs, fmt.Errorf("program name query failed: %w", programErr))
 			} else {
 				sample.ProgramName = program
@@ -87,6 +113,7 @@ func (b *LinuxBackend) Sample(_ context.Context) (UsageSample, error) {
 
 		idleMillis, idleErr := b.client.IdleMilliseconds()
 		if idleErr != nil {
+			connectionLost = connectionLost || errors.Is(idleErr, io.EOF)
 			errs = append(errs, fmt.Errorf("idle time query failed: %w", idleErr))
 		} else {
 			sample.IdleSeconds = float64(idleMillis) / 1000.0
@@ -98,13 +125,17 @@ func (b *LinuxBackend) Sample(_ context.Context) (UsageSample, error) {
 		errs = append(errs, err)
 	}
 
-	return completed, errors.Join(errs...)
+	return completed, errors.Join(errs...), connectionLost
 }
 
 func (b *LinuxBackend) Reset() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	return b.reconnectLocked()
+}
+
+func (b *LinuxBackend) reconnectLocked() error {
 	var errs []error
 	if b.client != nil {
 		if err := b.client.Close(); err != nil {

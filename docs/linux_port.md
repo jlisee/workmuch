@@ -86,6 +86,26 @@ Manual checks include About, Status, Quit, idle reset after input, recovery
 after unlock, CSV parsing, timestamp ordering, and approximately one row per
 second.
 
+### Validation result (2026-08-04)
+
+Step 4 is complete on the Ubuntu GNOME X11 target:
+
+- The unattended session remained locked. The live tray's exported D-Bus menu
+  exercised About, Status, and Quit; Status used the collector's cached sample
+  and Quit stopped the collector cleanly.
+- Locked-screen samples without activity produced no empty CSV rows. Synthetic
+  input reset idle time from about 2,782 seconds to 0.17 seconds, and valid
+  activity resumed without restarting the collector.
+- An actual host suspend/resume was not safe with the machine unattended. As
+  an unattended substitute, a disposable Xvfb server was stopped and recreated
+  to test recovery from complete X11 transport loss. The collector reported
+  `EOF`, retried while the display was absent, and resumed with the new active
+  window after the display returned.
+- A 30-minute tray soak produced exactly 1,800 parseable six-column rows. The
+  timestamps were strictly increasing, the mean interval was 1.000000 seconds
+  (0.997668 minimum and 1.002136 maximum), and tray Quit left runtime status
+  stopped. The worklog, status file, and error log remained mode `0600`.
+
 ## Later independent steps
 
 - Rotate worklogs at local midnight.

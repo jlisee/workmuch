@@ -55,6 +55,20 @@ QA console mode does not create or append a worklog or `error.log`. Redirecting
 its standard output will still save the activity data wherever the shell is
 directed.
 
+## Lock, suspend, and X11 recovery
+
+The collector stays running when a lock screen or a transient X11 failure
+makes activity unavailable. Samples without either an app or a window title
+are skipped, so lock screens do not add empty activity rows.
+
+If the X11 connection closes, the Linux backend reconnects and retries the
+current sample. If the display is still unavailable, later samples continue
+trying until it returns. Collection therefore resumes after unlock or resume
+without restarting WorkMuch, provided the session returns on the same
+`$DISPLAY`. A reconnect or retried sample that still fails remains visible in
+`error.log` and the tray Status report; a failure recovered within the same
+sample does not add a warning.
+
 ## Worklog format
 
 Normal tray and `--no-tray` collection append headerless CSV rows to:

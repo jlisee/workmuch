@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -122,6 +123,137 @@ func TestLinuxSampleStillQueriesIdleWhenWindowLookupFails(t *testing.T) {
 	assert.Equal(t, 1.25, sample.IdleSeconds)
 	assert.Zero(t, client.titleWindow)
 	assert.Zero(t, client.programWindow)
+}
+
+func TestLinuxSampleReconnectsAndRetriesAfterConnectionLoss(t *testing.T) {
+	stubIdentityLookups(t)
+
+	first := &fakeLinuxX11Client{windowErr: io.EOF, idleErr: io.EOF}
+	second := &fakeLinuxX11Client{
+		windowID:    8,
+		windowTitle: "Recovered window",
+		programName: "Recovered app",
+		idleMillis:  750,
+	}
+	clients := []linuxX11Client{first, second}
+	connectCalls := 0
+	backend, err := newLinuxBackend(":2", func(string) (linuxX11Client, error) {
+		client := clients[connectCalls]
+		connectCalls++
+		return client, nil
+	})
+	require.NoError(t, err)
+
+	sample, err := backend.Sample(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, "Recovered window", sample.WindowTitle)
+	assert.Equal(t, "Recovered app", sample.ProgramName)
+	assert.Equal(t, 0.75, sample.IdleSeconds)
+	assert.Equal(t, 2, connectCalls)
+	assert.True(t, first.closed)
+}
+
+func TestLinuxSampleUsesReplacementWhenClosingOldConnectionFails(t *testing.T) {
+	stubIdentityLookups(t)
+
+	closeErr := errors.New("close failed")
+	first := &fakeLinuxX11Client{
+		windowErr: io.EOF,
+		idleErr:   io.EOF,
+		closeErr:  closeErr,
+	}
+	second := &fakeLinuxX11Client{
+		windowID:    10,
+		windowTitle: "Recovered window",
+		programName: "Recovered app",
+	}
+	clients := []linuxX11Client{first, second}
+	connectCalls := 0
+	backend, err := newLinuxBackend(":2", func(string) (linuxX11Client, error) {
+		client := clients[connectCalls]
+		connectCalls++
+		return client, nil
+	})
+	require.NoError(t, err)
+
+	sample, err := backend.Sample(context.Background())
+
+	require.ErrorIs(t, err, closeErr)
+	assert.Equal(t, "Recovered window", sample.WindowTitle)
+	assert.Equal(t, "Recovered app", sample.ProgramName)
+	assert.Equal(t, 2, connectCalls)
+}
+
+func TestLinuxSampleRetriesConnectionAfterReconnectFailure(t *testing.T) {
+	stubIdentityLookups(t)
+
+	connectionLost := io.EOF
+	reconnectErr := errors.New("X11 is still unavailable")
+	first := &fakeLinuxX11Client{windowErr: connectionLost, idleErr: connectionLost}
+	second := &fakeLinuxX11Client{windowID: 9, programName: "Terminal"}
+	connectCalls := 0
+	backend, err := newLinuxBackend(":3", func(string) (linuxX11Client, error) {
+		connectCalls++
+		switch connectCalls {
+		case 1:
+			return first, nil
+		case 2:
+			return nil, reconnectErr
+		default:
+			return second, nil
+		}
+	})
+	require.NoError(t, err)
+
+	_, err = backend.Sample(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, connectionLost)
+	assert.ErrorIs(t, err, reconnectErr)
+
+	sample, err := backend.Sample(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "Terminal", sample.ProgramName)
+	assert.Equal(t, 3, connectCalls)
+}
+
+func TestLinuxSampleDoesNotReconnectForWindowQueryFailure(t *testing.T) {
+	stubIdentityLookups(t)
+
+	windowErr := errors.New("window disappeared")
+	client := &fakeLinuxX11Client{windowErr: windowErr, idleMillis: 500}
+	connectCalls := 0
+	backend, err := newLinuxBackend(":4", func(string) (linuxX11Client, error) {
+		connectCalls++
+		return client, nil
+	})
+	require.NoError(t, err)
+
+	sample, err := backend.Sample(context.Background())
+
+	require.ErrorIs(t, err, windowErr)
+	assert.Equal(t, 0.5, sample.IdleSeconds)
+	assert.Equal(t, 1, connectCalls)
+	assert.False(t, client.closed)
+}
+
+func TestLinuxSampleDoesNotReconnectForIdentityFailure(t *testing.T) {
+	stubIdentityLookups(t)
+
+	lookupHostname = func() (string, error) { return "", io.EOF }
+	client := &fakeLinuxX11Client{windowID: 5, programName: "Terminal"}
+	connectCalls := 0
+	backend, err := newLinuxBackend(":5", func(string) (linuxX11Client, error) {
+		connectCalls++
+		return client, nil
+	})
+	require.NoError(t, err)
+
+	_, err = backend.Sample(context.Background())
+
+	require.ErrorIs(t, err, io.EOF)
+	assert.Equal(t, 1, connectCalls)
+	assert.False(t, client.closed)
 }
 
 func TestNewLinuxBackendRequiresDisplay(t *testing.T) {
