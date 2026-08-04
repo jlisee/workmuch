@@ -3,7 +3,7 @@
 package backend
 
 /*
-#cgo LDFLAGS: -framework AppKit -framework ApplicationServices -framework CoreGraphics -framework Foundation
+#cgo LDFLAGS: -framework ApplicationServices -framework CoreGraphics
 #include "macos_native_bridge_darwin.h"
 */
 import "C"
