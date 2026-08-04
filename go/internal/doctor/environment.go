@@ -19,6 +19,42 @@ const launchAgentLabel = "com.jlisee.workmuch"
 
 type NativePermissionChecker struct{}
 
+func DetectLinuxSession(platformName string, getenv func(string) string) LinuxSessionReport {
+	if permissionPlatform(platformName) != "linux" {
+		return LinuxSessionReport{}
+	}
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+
+	report := LinuxSessionReport{
+		Applicable:     true,
+		Type:           strings.ToLower(strings.TrimSpace(getenv("XDG_SESSION_TYPE"))),
+		Support:        LinuxSessionUnknown,
+		X11Display:     strings.TrimSpace(getenv("DISPLAY")),
+		WaylandDisplay: strings.TrimSpace(getenv("WAYLAND_DISPLAY")),
+	}
+	if report.Type == "" {
+		switch {
+		case report.WaylandDisplay != "":
+			report.Type = "wayland"
+		case report.X11Display != "":
+			report.Type = "x11"
+		}
+	}
+
+	switch report.Type {
+	case "x11", "xorg":
+		report.Support = LinuxSessionSupported
+	case "wayland":
+		report.Support = LinuxSessionUnsupported
+		report.Detail = "Wayland detected; WorkMuch currently supports only X11/Xorg sessions."
+	default:
+		report.Detail = "WorkMuch currently supports only X11/Xorg sessions."
+	}
+	return report
+}
+
 func (NativePermissionChecker) Check(_ context.Context, platformName string) PermissionReport {
 	report := PermissionReport{Name: "Accessibility"}
 	if permissionPlatform(platformName) != "darwin" {

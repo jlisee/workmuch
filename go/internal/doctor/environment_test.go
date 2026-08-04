@@ -11,6 +11,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDetectLinuxSessionReportsWaylandAsUnsupported(t *testing.T) {
+	t.Parallel()
+
+	environment := map[string]string{
+		"XDG_SESSION_TYPE": "wayland",
+		"DISPLAY":          ":1",
+		"WAYLAND_DISPLAY":  "wayland-0",
+	}
+
+	report := DetectLinuxSession("linux", func(name string) string {
+		return environment[name]
+	})
+
+	assert.True(t, report.Applicable)
+	assert.Equal(t, "wayland", report.Type)
+	assert.Equal(t, LinuxSessionUnsupported, report.Support)
+	assert.Equal(t, ":1", report.X11Display)
+	assert.Equal(t, "wayland-0", report.WaylandDisplay)
+	assert.Contains(t, report.Detail, "only X11/Xorg")
+}
+
+func TestDetectLinuxSessionInfersX11FromDisplay(t *testing.T) {
+	t.Parallel()
+
+	report := DetectLinuxSession("linux", func(name string) string {
+		if name == "DISPLAY" {
+			return ":0"
+		}
+		return ""
+	})
+
+	assert.True(t, report.Applicable)
+	assert.Equal(t, "x11", report.Type)
+	assert.Equal(t, LinuxSessionSupported, report.Support)
+	assert.Equal(t, ":0", report.X11Display)
+}
+
+func TestDetectLinuxSessionIsNotApplicableOutsideLinux(t *testing.T) {
+	t.Parallel()
+
+	report := DetectLinuxSession("darwin", func(string) string {
+		return "unexpected"
+	})
+
+	assert.False(t, report.Applicable)
+}
+
 func TestLaunchAgentCheckerReportsCommandTimeoutAsError(t *testing.T) {
 	homeDir := createLaunchAgentPlist(t)
 	checker := NativeLaunchAgentChecker{

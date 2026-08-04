@@ -130,6 +130,14 @@ func TestCollectorKeepsPartialReportWhenBackendFails(t *testing.T) {
 	collector := Collector{
 		Platform:        "linux",
 		SelectedBackend: backend.BackendLinux,
+		SessionReporter: func(string) LinuxSessionReport {
+			return LinuxSessionReport{
+				Applicable: true,
+				Type:       "x11",
+				Support:    LinuxSessionSupported,
+				X11Display: ":99",
+			}
+		},
 		NewBackend: func(string, string) (backend.Backend, error) {
 			return nil, backendErr
 		},
@@ -150,9 +158,96 @@ func TestCollectorKeepsPartialReportWhenBackendFails(t *testing.T) {
 	assert.Equal(t, backend.BackendLinux, report.SelectedBackend)
 	assert.Empty(t, report.ActiveBackend)
 	assert.Contains(t, report.BackendError, "backend unavailable")
+	assert.True(t, report.X11.Applicable)
+	assert.Equal(t, ":99", report.X11.Display)
+	assert.Equal(t, X11ConnectionFailed, report.X11.Connection)
+	assert.Contains(t, report.X11.ConnectionError, "backend unavailable")
+	assert.Equal(t, X11SamplingNotAttempted, report.X11.Sampling)
 	assert.Equal(t, PermissionNotApplicable, report.Permission.State)
 	assert.False(t, report.Runtime.Present)
 	assert.Empty(t, report.Runtime.Error)
+}
+
+func TestCollectorReportsX11SamplingFailure(t *testing.T) {
+	t.Parallel()
+
+	sampleErr := errors.New("idle time query failed")
+	collector := Collector{
+		Platform:        "linux",
+		SelectedBackend: backend.BackendLinux,
+		SessionReporter: func(string) LinuxSessionReport {
+			return LinuxSessionReport{
+				Applicable: true,
+				Type:       "x11",
+				Support:    LinuxSessionSupported,
+				X11Display: ":0",
+			}
+		},
+		NewBackend: func(string, string) (backend.Backend, error) {
+			return &fakeBackend{
+				name:      backend.BackendLinux,
+				sampleErr: sampleErr,
+			}, nil
+		},
+		PermissionChecker: PermissionCheckerFunc(func(context.Context, string) PermissionReport {
+			return PermissionReport{Name: "Accessibility", State: PermissionNotApplicable}
+		}),
+		LogDirReporter: func(time.Time) LogDirectoryReport {
+			return LogDirectoryReport{}
+		},
+		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
+			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		}),
+		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
+	}
+
+	report := collector.Collect(context.Background())
+
+	assert.Equal(t, X11ConnectionConnected, report.X11.Connection)
+	assert.Equal(t, X11SamplingFailed, report.X11.Sampling)
+	assert.Contains(t, report.X11.SamplingError, "idle time query failed")
+}
+
+func TestCollectorReportsEmptyX11ActivityAsSamplingFailure(t *testing.T) {
+	t.Parallel()
+
+	collector := Collector{
+		Platform:        "linux",
+		SelectedBackend: backend.BackendLinux,
+		SessionReporter: func(string) LinuxSessionReport {
+			return LinuxSessionReport{
+				Applicable: true,
+				Type:       "x11",
+				Support:    LinuxSessionSupported,
+				X11Display: ":0",
+			}
+		},
+		NewBackend: func(string, string) (backend.Backend, error) {
+			return &fakeBackend{
+				name: backend.BackendLinux,
+				sample: backend.UsageSample{
+					IdleSeconds: 1.25,
+				},
+			}, nil
+		},
+		PermissionChecker: PermissionCheckerFunc(func(context.Context, string) PermissionReport {
+			return PermissionReport{Name: "Accessibility", State: PermissionNotApplicable}
+		}),
+		LogDirReporter: func(time.Time) LogDirectoryReport {
+			return LogDirectoryReport{}
+		},
+		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
+			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		}),
+		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
+	}
+
+	report := collector.Collect(context.Background())
+
+	assert.Equal(t, X11ConnectionConnected, report.X11.Connection)
+	assert.Equal(t, X11SamplingFailed, report.X11.Sampling)
+	assert.Contains(t, report.X11.SamplingError, "neither a program name nor a window title")
+	assert.Contains(t, report.Sample.Error, "neither a program name nor a window title")
 }
 
 func TestCollectorRecordsSampleWarnings(t *testing.T) {

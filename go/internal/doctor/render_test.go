@@ -60,6 +60,66 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 	assert.Contains(t, output, "Sample count: 4")
 }
 
+func TestRenderTextExplainsWaylandAndX11Failures(t *testing.T) {
+	t.Parallel()
+
+	report := DoctorReport{
+		LinuxSession: LinuxSessionReport{
+			Applicable:     true,
+			Type:           "wayland",
+			Support:        LinuxSessionUnsupported,
+			X11Display:     ":1",
+			WaylandDisplay: "wayland-0",
+			Detail:         "Wayland detected; WorkMuch currently supports only X11/Xorg sessions.",
+		},
+		X11: X11Report{
+			Applicable:      true,
+			Display:         ":1",
+			Connection:      X11ConnectionFailed,
+			ConnectionError: "connect to X11 display \" :1\": connection refused",
+			Sampling:        X11SamplingNotAttempted,
+		},
+	}
+
+	output := RenderText(report)
+
+	assert.Contains(t, output, "Desktop session: wayland")
+	assert.Contains(t, output, "Linux session support: unsupported")
+	assert.Contains(t, output, "only X11/Xorg sessions")
+	assert.Contains(t, output, "X11 display: :1")
+	assert.Contains(t, output, "Wayland display: wayland-0")
+	assert.Contains(t, output, "X11 connection: failed")
+	assert.Contains(t, output, "X11 connection error: connect to X11 display")
+	assert.Contains(t, output, "X11 sampling: not attempted")
+}
+
+func TestRenderHTMLShowsX11SamplingFailure(t *testing.T) {
+	t.Parallel()
+
+	report := DoctorReport{
+		LinuxSession: LinuxSessionReport{
+			Applicable: true,
+			Type:       "x11",
+			Support:    LinuxSessionSupported,
+			X11Display: ":0",
+		},
+		X11: X11Report{
+			Applicable:    true,
+			Display:       ":0",
+			Connection:    X11ConnectionConnected,
+			Sampling:      X11SamplingFailed,
+			SamplingError: "idle time query failed",
+		},
+	}
+
+	output := RenderHTML(report)
+
+	assert.Contains(t, output, "X11 connection")
+	assert.Contains(t, output, "connected")
+	assert.Contains(t, output, "X11 sampling")
+	assert.Contains(t, output, "idle time query failed")
+}
+
 func TestRenderHTMLEscapesReportValues(t *testing.T) {
 	t.Parallel()
 

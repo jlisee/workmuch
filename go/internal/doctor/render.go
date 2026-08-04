@@ -12,6 +12,7 @@ func RenderText(report DoctorReport) string {
 	b.WriteString("WorkMuch Doctor\n")
 	writeLine(&b, "Selected backend", valueOrUnavailable(report.SelectedBackend))
 	writeLine(&b, "Active backend", valueOrUnavailable(report.ActiveBackend))
+	writeLinuxDiagnostics(&b, report)
 	if report.BackendError != "" {
 		writeLine(&b, "Backend error", report.BackendError)
 	}
@@ -64,24 +65,27 @@ func RenderHTML(report DoctorReport) string {
 	rows := []htmlRow{
 		{"Selected backend", valueOrUnavailable(report.SelectedBackend)},
 		{"Active backend", valueOrUnavailable(report.ActiveBackend)},
-		{"Accessibility permission", stringOrUnknown(string(report.Permission.State))},
-		{"Frontmost app", valueOrUnavailable(report.Sample.FrontmostApp)},
-		{"Focused window title", windowTitleText(report.Sample)},
-		{"Idle seconds", fmt.Sprintf("%.2f", report.Sample.IdleSeconds)},
-		{"Log directory", logDirectoryText(report.Logs)},
-		{"Current work log", valueOrUnavailable(report.Logs.CurrentWorkLog)},
-		{"LaunchAgent", launchAgentText(report.LaunchAgent)},
-		{"Runtime status", runtimeStatusText(report.Runtime)},
-		{"Runtime status file", valueOrUnavailable(report.Runtime.Path)},
-		{"Runtime selected backend", valueOrUnavailable(report.Runtime.Status.SelectedBackend)},
-		{"Runtime active backend", valueOrUnavailable(report.Runtime.Status.ActiveBackend)},
-		{"Sample count", fmt.Sprintf("%d", report.Runtime.Status.SampleCount)},
-		{"Last started", timeText(report.Runtime.Status.StartedAt)},
-		{"Last stopped", timeText(report.Runtime.Status.StoppedAt)},
-		{"Last sample", timeText(report.Runtime.Status.LastSampleAt)},
-		{"Last successful sample", timeText(report.Runtime.Status.LastSuccessfulSampleAt)},
-		{"Runtime work log", valueOrUnavailable(report.Runtime.Status.CurrentWorkLogPath)},
 	}
+	rows = appendLinuxDiagnosticRows(rows, report)
+	rows = append(rows,
+		htmlRow{"Accessibility permission", stringOrUnknown(string(report.Permission.State))},
+		htmlRow{"Frontmost app", valueOrUnavailable(report.Sample.FrontmostApp)},
+		htmlRow{"Focused window title", windowTitleText(report.Sample)},
+		htmlRow{"Idle seconds", fmt.Sprintf("%.2f", report.Sample.IdleSeconds)},
+		htmlRow{"Log directory", logDirectoryText(report.Logs)},
+		htmlRow{"Current work log", valueOrUnavailable(report.Logs.CurrentWorkLog)},
+		htmlRow{"LaunchAgent", launchAgentText(report.LaunchAgent)},
+		htmlRow{"Runtime status", runtimeStatusText(report.Runtime)},
+		htmlRow{"Runtime status file", valueOrUnavailable(report.Runtime.Path)},
+		htmlRow{"Runtime selected backend", valueOrUnavailable(report.Runtime.Status.SelectedBackend)},
+		htmlRow{"Runtime active backend", valueOrUnavailable(report.Runtime.Status.ActiveBackend)},
+		htmlRow{"Sample count", fmt.Sprintf("%d", report.Runtime.Status.SampleCount)},
+		htmlRow{"Last started", timeText(report.Runtime.Status.StartedAt)},
+		htmlRow{"Last stopped", timeText(report.Runtime.Status.StoppedAt)},
+		htmlRow{"Last sample", timeText(report.Runtime.Status.LastSampleAt)},
+		htmlRow{"Last successful sample", timeText(report.Runtime.Status.LastSuccessfulSampleAt)},
+		htmlRow{"Runtime work log", valueOrUnavailable(report.Runtime.Status.CurrentWorkLogPath)},
+	)
 	if report.BackendError != "" {
 		rows = append(rows, htmlRow{"Backend error", report.BackendError})
 	}
@@ -181,6 +185,59 @@ func RenderHTML(report DoctorReport) string {
 type htmlRow struct {
 	label string
 	value string
+}
+
+func writeLinuxDiagnostics(b *strings.Builder, report DoctorReport) {
+	if report.LinuxSession.Applicable {
+		writeLine(b, "Desktop session", valueOrUnavailable(report.LinuxSession.Type))
+		writeLine(b, "Linux session support", stringOrUnknown(string(report.LinuxSession.Support)))
+		if report.LinuxSession.Detail != "" {
+			writeLine(b, "Linux session detail", report.LinuxSession.Detail)
+		}
+		if report.LinuxSession.WaylandDisplay != "" {
+			writeLine(b, "Wayland display", report.LinuxSession.WaylandDisplay)
+		}
+	}
+	if report.X11.Applicable {
+		writeLine(b, "X11 display", valueOrUnavailable(report.X11.Display))
+		writeLine(b, "X11 connection", stringOrUnknown(string(report.X11.Connection)))
+		if report.X11.ConnectionError != "" {
+			writeLine(b, "X11 connection error", report.X11.ConnectionError)
+		}
+		writeLine(b, "X11 sampling", stringOrUnknown(string(report.X11.Sampling)))
+		if report.X11.SamplingError != "" {
+			writeLine(b, "X11 sampling error", report.X11.SamplingError)
+		}
+	}
+}
+
+func appendLinuxDiagnosticRows(rows []htmlRow, report DoctorReport) []htmlRow {
+	if report.LinuxSession.Applicable {
+		rows = append(rows,
+			htmlRow{"Desktop session", valueOrUnavailable(report.LinuxSession.Type)},
+			htmlRow{"Linux session support", stringOrUnknown(string(report.LinuxSession.Support))},
+		)
+		if report.LinuxSession.Detail != "" {
+			rows = append(rows, htmlRow{"Linux session detail", report.LinuxSession.Detail})
+		}
+		if report.LinuxSession.WaylandDisplay != "" {
+			rows = append(rows, htmlRow{"Wayland display", report.LinuxSession.WaylandDisplay})
+		}
+	}
+	if report.X11.Applicable {
+		rows = append(rows,
+			htmlRow{"X11 display", valueOrUnavailable(report.X11.Display)},
+			htmlRow{"X11 connection", stringOrUnknown(string(report.X11.Connection))},
+		)
+		if report.X11.ConnectionError != "" {
+			rows = append(rows, htmlRow{"X11 connection error", report.X11.ConnectionError})
+		}
+		rows = append(rows, htmlRow{"X11 sampling", stringOrUnknown(string(report.X11.Sampling))})
+		if report.X11.SamplingError != "" {
+			rows = append(rows, htmlRow{"X11 sampling error", report.X11.SamplingError})
+		}
+	}
+	return rows
 }
 
 func writeLine(b *strings.Builder, label string, value string) {

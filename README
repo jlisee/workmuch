@@ -21,14 +21,15 @@ This tool records which program/window you are currently using and your idle
 time at a configurable sample rate so you can analyze what you actually use
 your computer for.
 
-- Linux: uses X11 (`python-xlib` + `libX11`/`libXss`)
+- Linux: the Go collector uses pure-Go X11; the Python collector uses
+  `python-xlib` + `libX11`/`libXss`
 - macOS: defaults to native framework APIs (AppKit + Accessibility + CoreGraphics)
 
 
 Dependencies
 ------------
 
-On Linux, install the required X11 libraries using::
+For the Python collector on Linux, install the required X11 libraries using::
 
     sudo apt-get install libX11-dev libXss-dev
 
@@ -77,7 +78,12 @@ When launched this way, logging starts immediately and continues in the
 background. The tray menu includes:
 
 - `About` (opens a basic about screen)
+- `Status` (opens collector and backend diagnostics)
 - `Quit`
+
+Use foreground collection without a tray to write the normal daily worklog:
+
+    ./run_go.sh --no-tray
 
 Use QA console mode to bypass tray UI and stream CSV to stdout:
 
@@ -89,6 +95,10 @@ For manual QA, use console mode to avoid writing any files:
 
 In this mode, activity rows are emitted to stdout as CSV and no work log or
 error log files are written.
+
+The Go Linux collector supports X11/Xorg sessions. See
+`docs/linux.md <docs/linux.md>`_ for diagnostics, Wayland limitations, run
+modes, the CSV format, file locations, and privacy guidance.
 
 Tests
 -----

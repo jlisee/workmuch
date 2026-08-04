@@ -25,6 +25,7 @@ func NewCollector(selectedBackend string) Collector {
 	return Collector{
 		Platform:           runtime.GOOS,
 		SelectedBackend:    selectedBackend,
+		SessionReporter:    func(platformName string) LinuxSessionReport { return DetectLinuxSession(platformName, os.Getenv) },
 		NewBackend:         backend.NewBackend,
 		PermissionChecker:  NativePermissionChecker{},
 		LogDirReporter:     DefaultLogDirReport,
@@ -36,6 +37,7 @@ func NewCollector(selectedBackend string) Collector {
 
 func (c Collector) Collect(ctx context.Context) DoctorReport {
 	now := c.now()
+	platformName := c.platform()
 	selectedBackend := strings.TrimSpace(c.SelectedBackend)
 	if selectedBackend == "" {
 		selectedBackend = backend.BackendAuto
@@ -44,9 +46,20 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	report := DoctorReport{
 		SelectedBackend: selectedBackend,
 	}
+	if c.SessionReporter != nil {
+		report.LinuxSession = c.SessionReporter(platformName)
+	}
+	if platformName == "linux" && (selectedBackend == backend.BackendAuto || selectedBackend == backend.BackendLinux) {
+		report.X11 = X11Report{
+			Applicable: true,
+			Display:    report.LinuxSession.X11Display,
+			Connection: X11ConnectionNotAttempted,
+			Sampling:   X11SamplingNotAttempted,
+		}
+	}
 
 	if c.PermissionChecker != nil {
-		report.Permission = c.PermissionChecker.Check(ctx, c.platform())
+		report.Permission = c.PermissionChecker.Check(ctx, platformName)
 	}
 	if c.LogDirReporter != nil {
 		report.Logs = c.LogDirReporter(now)
@@ -72,9 +85,13 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	if newBackend == nil {
 		newBackend = backend.NewBackend
 	}
-	usageBackend, err := newBackend(c.platform(), selectedBackend)
+	usageBackend, err := newBackend(platformName, selectedBackend)
 	if err != nil {
 		report.BackendError = err.Error()
+		if report.X11.Applicable {
+			report.X11.Connection = X11ConnectionFailed
+			report.X11.ConnectionError = err.Error()
+		}
 		return report
 	}
 	defer func() {
@@ -88,9 +105,21 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	}()
 
 	report.ActiveBackend = usageBackend.Name()
+	if report.X11.Applicable && report.ActiveBackend == backend.BackendLinux {
+		report.X11.Connection = X11ConnectionConnected
+	}
 	sample, sampleErr := usageBackend.Sample(ctx)
+	if sampleErr == nil && report.X11.Applicable && !sample.HasActivity() {
+		sampleErr = errors.New("X11 sample returned neither a program name nor a window title")
+	}
 	if sampleErr != nil {
 		report.Sample.Error = sampleErr.Error()
+		if report.X11.Applicable {
+			report.X11.Sampling = X11SamplingFailed
+			report.X11.SamplingError = sampleErr.Error()
+		}
+	} else if report.X11.Applicable {
+		report.X11.Sampling = X11SamplingSuccessful
 	}
 	report.Sample.FrontmostApp = sample.ProgramName
 	report.Sample.WindowTitle = sample.WindowTitle

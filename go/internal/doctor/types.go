@@ -63,10 +63,54 @@ type RuntimeStatusReport struct {
 	Error   string
 }
 
+type LinuxSessionSupport string
+
+const (
+	LinuxSessionSupported   LinuxSessionSupport = "supported"
+	LinuxSessionUnsupported LinuxSessionSupport = "unsupported"
+	LinuxSessionUnknown     LinuxSessionSupport = "unknown"
+)
+
+type LinuxSessionReport struct {
+	Applicable     bool
+	Type           string
+	Support        LinuxSessionSupport
+	X11Display     string
+	WaylandDisplay string
+	Detail         string
+}
+
+type X11ConnectionState string
+
+const (
+	X11ConnectionNotAttempted X11ConnectionState = "not attempted"
+	X11ConnectionConnected    X11ConnectionState = "connected"
+	X11ConnectionFailed       X11ConnectionState = "failed"
+)
+
+type X11SamplingState string
+
+const (
+	X11SamplingNotAttempted X11SamplingState = "not attempted"
+	X11SamplingSuccessful   X11SamplingState = "successful"
+	X11SamplingFailed       X11SamplingState = "failed"
+)
+
+type X11Report struct {
+	Applicable      bool
+	Display         string
+	Connection      X11ConnectionState
+	ConnectionError string
+	Sampling        X11SamplingState
+	SamplingError   string
+}
+
 type DoctorReport struct {
 	SelectedBackend string
 	ActiveBackend   string
 	BackendError    string
+	LinuxSession    LinuxSessionReport
+	X11             X11Report
 	Permission      PermissionReport
 	Sample          SampleReport
 	Logs            LogDirectoryReport
@@ -103,9 +147,12 @@ type RuntimeStatusStore interface {
 
 type LogDirReporter func(now time.Time) LogDirectoryReport
 
+type SessionReporter func(platform string) LinuxSessionReport
+
 type Collector struct {
 	Platform          string
 	SelectedBackend   string
+	SessionReporter   SessionReporter
 	NewBackend        BackendFactory
 	PermissionChecker PermissionChecker
 	LogDirReporter    LogDirReporter

@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"workmuch-go/internal/backend"
+	"workmuch-go/internal/logging"
 	"workmuch-go/internal/platform"
 )
 
@@ -63,4 +66,49 @@ func TestOpenCSVOutputNoTrayUsesPrivateDailyWorklog(t *testing.T) {
 	info, err := os.Stat(output.workLogPath)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestWriteActivitySampleSkipsRowsWithoutAppOrWindow(t *testing.T) {
+	var output bytes.Buffer
+	writer := logging.NewCSVWriter(&output)
+
+	written, err := writeActivitySample(writer, backend.UsageSample{
+		Host:        "host",
+		User:        "user",
+		IdleSeconds: 1.25,
+	}, 1700000000.5)
+
+	require.NoError(t, err)
+	assert.False(t, written)
+	assert.Empty(t, output.String())
+}
+
+func TestWriteActivitySampleKeepsPartialActivityRows(t *testing.T) {
+	var output bytes.Buffer
+	writer := logging.NewCSVWriter(&output)
+
+	written, err := writeActivitySample(writer, backend.UsageSample{
+		Host:        "host",
+		User:        "user",
+		ProgramName: "Terminal",
+	}, 1700000000.5)
+
+	require.NoError(t, err)
+	assert.True(t, written)
+	require.NoError(t, writer.Flush())
+	assert.Contains(t, output.String(), "Terminal")
+}
+
+func TestRunCollectorWithoutDisplayDoesNotCreateWorklog(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("DISPLAY", "")
+	opts := DefaultOptions()
+	opts.Backend = backend.BackendLinux
+	opts.NoTray = true
+
+	err := runCollector(context.Background(), opts, log.New(&bytes.Buffer{}, "", 0))
+
+	require.Error(t, err)
+	assert.NoDirExists(t, platform.LogDir(homeDir))
 }

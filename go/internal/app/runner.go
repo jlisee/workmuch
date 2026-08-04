@@ -121,22 +121,25 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 			}
 		}
 
-		if err := csvWriter.WriteSample(sample, platform.NowUnixSeconds()); err != nil {
+		written, err := writeActivitySample(csvWriter, sample, platform.NowUnixSeconds())
+		if err != nil {
 			wrappedErr := fmt.Errorf("write csv record: %w", err)
 			if statusTracker != nil {
 				statusTracker.RecordError(formatLogMessage("error", "write csv record", err, logField{key: "path", value: output.workLogPath}))
 			}
 			return wrappedErr
 		}
-		if err := csvWriter.Flush(); err != nil {
-			wrappedErr := fmt.Errorf("flush csv record: %w", err)
-			if statusTracker != nil {
-				statusTracker.RecordError(formatLogMessage("error", "flush csv record", err, logField{key: "path", value: output.workLogPath}))
+		if written {
+			if err := csvWriter.Flush(); err != nil {
+				wrappedErr := fmt.Errorf("flush csv record: %w", err)
+				if statusTracker != nil {
+					statusTracker.RecordError(formatLogMessage("error", "flush csv record", err, logField{key: "path", value: output.workLogPath}))
+				}
+				return wrappedErr
 			}
-			return wrappedErr
 		}
 		if statusTracker != nil {
-			statusTracker.RecordSample(sampleErr == nil)
+			statusTracker.RecordSample(sampleErr == nil && written)
 		}
 
 		sleepDuration, updatedWakeAt := ComputeNextSleep(time.Now(), nextWakeAt, period)
@@ -149,6 +152,16 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 			return err
 		}
 	}
+}
+
+func writeActivitySample(csvWriter *logging.CSVWriter, sample backend.UsageSample, timestampSeconds float64) (bool, error) {
+	if !sample.HasActivity() {
+		return false, nil
+	}
+	if err := csvWriter.WriteSample(sample, timestampSeconds); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func ComputeNextSleep(now time.Time, wakeAt time.Time, period time.Duration) (time.Duration, time.Time) {

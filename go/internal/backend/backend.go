@@ -26,6 +26,10 @@ type UsageSample struct {
 	IdleSeconds float64
 }
 
+func (s UsageSample) HasActivity() bool {
+	return strings.TrimSpace(s.ProgramName) != "" || strings.TrimSpace(s.WindowTitle) != ""
+}
+
 type Backend interface {
 	Name() string
 	Sample(ctx context.Context) (UsageSample, error)
