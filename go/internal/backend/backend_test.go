@@ -22,9 +22,12 @@ func TestNewBackendUnknownBackend(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNewBackendLinuxNotImplemented(t *testing.T) {
+func TestNewBackendLinuxRequiresDisplay(t *testing.T) {
+	t.Setenv("DISPLAY", "")
 	_, err := NewBackend("linux", BackendLinux)
 	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrNotImplemented)
+	assert.Contains(t, err.Error(), "DISPLAY")
 }
 
 func TestCompleteSampleAddsIdentity(t *testing.T) {
