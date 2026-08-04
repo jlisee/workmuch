@@ -12,7 +12,7 @@ import (
 )
 
 func showStatusScreen(opts app.Options) error {
-	report := doctor.NewCollector(opts.Backend).Collect(context.Background())
+	report := collectStatusReport(opts)
 	target, err := ensureStatusHTML(report)
 	if err != nil {
 		return err
@@ -22,6 +22,10 @@ func showStatusScreen(opts app.Options) error {
 		return err
 	}
 	return cmd.Start()
+}
+
+func collectStatusReport(opts app.Options) doctor.DoctorReport {
+	return doctor.NewStatusCollector(opts.Backend).Collect(context.Background())
 }
 
 func ensureStatusHTML(report doctor.DoctorReport) (string, error) {

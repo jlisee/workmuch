@@ -18,6 +18,7 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 		ActiveBackend:   "macos-native",
 		Permission:      PermissionReport{Name: "Accessibility", State: PermissionGranted},
 		Sample: SampleReport{
+			Source:               SampleSourceDiagnostic,
 			FrontmostApp:         "Safari",
 			WindowTitle:          "Docs",
 			WindowTitleAvailable: true,
@@ -48,6 +49,7 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 	assert.Contains(t, output, "Selected backend: auto")
 	assert.Contains(t, output, "Active backend: macos-native")
 	assert.Contains(t, output, "Accessibility permission: granted")
+	assert.Contains(t, output, "Sample source: live diagnostic probe")
 	assert.Contains(t, output, "Frontmost app: Safari")
 	assert.Contains(t, output, "Focused window title: Docs")
 	assert.Contains(t, output, "Idle seconds: 1.25")

@@ -250,6 +250,62 @@ func TestCollectorReportsEmptyX11ActivityAsSamplingFailure(t *testing.T) {
 	assert.Contains(t, report.Sample.Error, "neither a program name nor a window title")
 }
 
+func TestCollectorUsesRunningCollectorSampleForStatus(t *testing.T) {
+	t.Parallel()
+
+	startedAt := time.Date(2026, time.August, 4, 11, 0, 0, 0, time.UTC)
+	collector := Collector{
+		Platform:         "linux",
+		SelectedBackend:  backend.BackendLinux,
+		UseRuntimeSample: true,
+		SessionReporter: func(string) LinuxSessionReport {
+			return LinuxSessionReport{
+				Applicable: true,
+				Type:       "x11",
+				Support:    LinuxSessionSupported,
+				X11Display: ":0",
+			}
+		},
+		NewBackend: func(string, string) (backend.Backend, error) {
+			t.Fatal("status should not open a separate backend")
+			return nil, nil
+		},
+		PermissionChecker: PermissionCheckerFunc(func(context.Context, string) PermissionReport {
+			return PermissionReport{Name: "Accessibility", State: PermissionNotApplicable}
+		}),
+		LogDirReporter: func(time.Time) LogDirectoryReport {
+			return LogDirectoryReport{}
+		},
+		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
+			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		}),
+		RuntimeStatusStore: &fakeRuntimeStatusStore{
+			value: status.RuntimeStatus{
+				StartedAt:       &startedAt,
+				SelectedBackend: backend.BackendAuto,
+				ActiveBackend:   backend.BackendLinux,
+				LastSuccessfulSample: &status.ActivitySample{
+					ProgramName: "Gnome-terminal",
+					WindowTitle: "Terminal",
+					IdleSeconds: 3.5,
+				},
+			},
+		},
+	}
+
+	report := collector.Collect(context.Background())
+
+	assert.Equal(t, backend.BackendLinux, report.ActiveBackend)
+	assert.Equal(t, SampleSourceRuntime, report.Sample.Source)
+	assert.Equal(t, "Gnome-terminal", report.Sample.FrontmostApp)
+	assert.Equal(t, "Terminal", report.Sample.WindowTitle)
+	assert.True(t, report.Sample.WindowTitleAvailable)
+	assert.Equal(t, 3.5, report.Sample.IdleSeconds)
+	assert.Empty(t, report.Sample.Error)
+	assert.Equal(t, X11ConnectionConnected, report.X11.Connection)
+	assert.Equal(t, X11SamplingSuccessful, report.X11.Sampling)
+}
+
 func TestCollectorRecordsSampleWarnings(t *testing.T) {
 	t.Parallel()
 

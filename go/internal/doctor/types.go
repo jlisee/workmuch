@@ -35,7 +35,15 @@ type PermissionReport struct {
 	Error  string
 }
 
+type SampleSource string
+
+const (
+	SampleSourceDiagnostic SampleSource = "live diagnostic probe"
+	SampleSourceRuntime    SampleSource = "collector last successful sample"
+)
+
 type SampleReport struct {
+	Source               SampleSource
 	FrontmostApp         string
 	WindowTitle          string
 	WindowTitleAvailable bool
@@ -152,6 +160,7 @@ type SessionReporter func(platform string) LinuxSessionReport
 type Collector struct {
 	Platform          string
 	SelectedBackend   string
+	UseRuntimeSample  bool
 	SessionReporter   SessionReporter
 	NewBackend        BackendFactory
 	PermissionChecker PermissionChecker

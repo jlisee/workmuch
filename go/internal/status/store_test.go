@@ -26,6 +26,11 @@ func TestStoreWriteReadRoundTrip(t *testing.T) {
 		SelectedBackend:        "auto",
 		ActiveBackend:          "macos-native",
 		CurrentWorkLogPath:     "/Users/test/.workmuch/2026-07-08.worklog",
+		LastSuccessfulSample: &ActivitySample{
+			ProgramName: "Terminal",
+			WindowTitle: "Status work",
+			IdleSeconds: 1.25,
+		},
 		LatestWarning: &RuntimeEvent{
 			At:      warningAt,
 			Message: "backend sample warning backend=macos-native: no title",

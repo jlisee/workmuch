@@ -29,8 +29,9 @@ Systray support is now implemented for the Go app, using
 - Selecting `Quit` exits the tray and shuts down the collector.
 - Selecting `About` opens a basic screen with:
   - `Current app and window title based activity tracker`
-- Selecting `Status` opens a private temporary page with the current doctor
-  report.
+- Selecting `Status` opens a private temporary page with runtime health and
+  the collector's last successful sample. It does not create a second backend
+  sample while the tray menu is active.
 - External cancellation (for example SIGTERM/interrupt in terminal-launched
   sessions) also shuts down the collector and exits tray mode.
 

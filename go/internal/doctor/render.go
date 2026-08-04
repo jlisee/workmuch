@@ -23,6 +23,7 @@ func RenderText(report DoctorReport) string {
 	if report.Permission.Error != "" {
 		writeLine(&b, "Accessibility error", report.Permission.Error)
 	}
+	writeLine(&b, "Sample source", stringOrUnknown(string(report.Sample.Source)))
 	writeLine(&b, "Frontmost app", valueOrUnavailable(report.Sample.FrontmostApp))
 	writeLine(&b, "Focused window title", windowTitleText(report.Sample))
 	writeLine(&b, "Idle seconds", fmt.Sprintf("%.2f", report.Sample.IdleSeconds))
@@ -69,6 +70,7 @@ func RenderHTML(report DoctorReport) string {
 	rows = appendLinuxDiagnosticRows(rows, report)
 	rows = append(rows,
 		htmlRow{"Accessibility permission", stringOrUnknown(string(report.Permission.State))},
+		htmlRow{"Sample source", stringOrUnknown(string(report.Sample.Source))},
 		htmlRow{"Frontmost app", valueOrUnavailable(report.Sample.FrontmostApp)},
 		htmlRow{"Focused window title", windowTitleText(report.Sample)},
 		htmlRow{"Idle seconds", fmt.Sprintf("%.2f", report.Sample.IdleSeconds)},

@@ -35,6 +35,12 @@ func NewCollector(selectedBackend string) Collector {
 	}
 }
 
+func NewStatusCollector(selectedBackend string) Collector {
+	collector := NewCollector(selectedBackend)
+	collector.UseRuntimeSample = true
+	return collector
+}
+
 func (c Collector) Collect(ctx context.Context) DoctorReport {
 	now := c.now()
 	platformName := c.platform()
@@ -45,6 +51,9 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 
 	report := DoctorReport{
 		SelectedBackend: selectedBackend,
+		Sample: SampleReport{
+			Source: SampleSourceDiagnostic,
+		},
 	}
 	if c.SessionReporter != nil {
 		report.LinuxSession = c.SessionReporter(platformName)
@@ -79,6 +88,11 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 		default:
 			report.Runtime.Error = err.Error()
 		}
+	}
+	if c.UseRuntimeSample {
+		report.Sample.Source = SampleSourceRuntime
+		populateRuntimeSample(&report)
+		return report
 	}
 
 	newBackend := c.NewBackend
@@ -127,6 +141,31 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	report.Sample.IdleSeconds = sample.IdleSeconds
 
 	return report
+}
+
+func populateRuntimeSample(report *DoctorReport) {
+	if report == nil || !report.Runtime.Present {
+		return
+	}
+
+	runtimeStatus := report.Runtime.Status
+	report.ActiveBackend = runtimeStatus.ActiveBackend
+	if report.X11.Applicable && runtimeStatus.ActiveBackend == backend.BackendLinux &&
+		runtimeStatus.StartedAt != nil && runtimeStatus.StoppedAt == nil {
+		report.X11.Connection = X11ConnectionConnected
+	}
+	if runtimeStatus.LastSuccessfulSample == nil {
+		return
+	}
+
+	sample := runtimeStatus.LastSuccessfulSample
+	report.Sample.FrontmostApp = sample.ProgramName
+	report.Sample.WindowTitle = sample.WindowTitle
+	report.Sample.WindowTitleAvailable = sample.WindowTitle != ""
+	report.Sample.IdleSeconds = sample.IdleSeconds
+	if report.X11.Applicable && runtimeStatus.ActiveBackend == backend.BackendLinux {
+		report.X11.Sampling = X11SamplingSuccessful
+	}
 }
 
 func (c Collector) platform() string {

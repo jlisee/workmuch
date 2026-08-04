@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"workmuch-go/internal/backend"
 	"workmuch-go/internal/status"
 )
 
@@ -54,7 +55,7 @@ func (t *runtimeStatusTracker) Stop() {
 	t.write()
 }
 
-func (t *runtimeStatusTracker) RecordSample(success bool) {
+func (t *runtimeStatusTracker) RecordSample(sample backend.UsageSample, success bool) {
 	if t == nil {
 		return
 	}
@@ -63,6 +64,11 @@ func (t *runtimeStatusTracker) RecordSample(success bool) {
 	t.value.SampleCount++
 	if success {
 		t.value.LastSuccessfulSampleAt = &now
+		t.value.LastSuccessfulSample = &status.ActivitySample{
+			ProgramName: sample.ProgramName,
+			WindowTitle: sample.WindowTitle,
+			IdleSeconds: sample.IdleSeconds,
+		}
 	}
 	t.write()
 }

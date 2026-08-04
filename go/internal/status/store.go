@@ -16,17 +16,24 @@ type RuntimeEvent struct {
 	Message string    `json:"message"`
 }
 
+type ActivitySample struct {
+	ProgramName string  `json:"program_name"`
+	WindowTitle string  `json:"window_title"`
+	IdleSeconds float64 `json:"idle_seconds"`
+}
+
 type RuntimeStatus struct {
-	StartedAt              *time.Time    `json:"started_at,omitempty"`
-	StoppedAt              *time.Time    `json:"stopped_at,omitempty"`
-	LastSampleAt           *time.Time    `json:"last_sample_at,omitempty"`
-	LastSuccessfulSampleAt *time.Time    `json:"last_successful_sample_at,omitempty"`
-	SampleCount            int64         `json:"sample_count"`
-	SelectedBackend        string        `json:"selected_backend"`
-	ActiveBackend          string        `json:"active_backend"`
-	CurrentWorkLogPath     string        `json:"current_work_log_path"`
-	LatestWarning          *RuntimeEvent `json:"latest_warning,omitempty"`
-	LatestError            *RuntimeEvent `json:"latest_error,omitempty"`
+	StartedAt              *time.Time      `json:"started_at,omitempty"`
+	StoppedAt              *time.Time      `json:"stopped_at,omitempty"`
+	LastSampleAt           *time.Time      `json:"last_sample_at,omitempty"`
+	LastSuccessfulSampleAt *time.Time      `json:"last_successful_sample_at,omitempty"`
+	SampleCount            int64           `json:"sample_count"`
+	SelectedBackend        string          `json:"selected_backend"`
+	ActiveBackend          string          `json:"active_backend"`
+	CurrentWorkLogPath     string          `json:"current_work_log_path"`
+	LastSuccessfulSample   *ActivitySample `json:"last_successful_sample,omitempty"`
+	LatestWarning          *RuntimeEvent   `json:"latest_warning,omitempty"`
+	LatestError            *RuntimeEvent   `json:"latest_error,omitempty"`
 }
 
 type Store struct {

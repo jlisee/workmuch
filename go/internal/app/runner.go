@@ -139,7 +139,7 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 			}
 		}
 		if statusTracker != nil {
-			statusTracker.RecordSample(sampleErr == nil && written)
+			statusTracker.RecordSample(sample, sampleErr == nil && written)
 		}
 
 		sleepDuration, updatedWakeAt := ComputeNextSleep(time.Now(), nextWakeAt, period)

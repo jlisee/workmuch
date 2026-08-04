@@ -33,8 +33,10 @@ Run without options to start the tray collector:
 ```
 
 Collection starts immediately and writes the daily worklog. The tray menu has
-`About`, `Status`, and `Quit`. `Status` opens the same health information as
-`doctor`; `Quit` stops collection and exits the tray.
+`About`, `Status`, and `Quit`. `Status` shows runtime health and the running
+collector's last successful sample, so opening the tray does not replace the
+active app with the tray popup. `doctor` performs a separate live diagnostic
+probe. `Quit` stops collection and exits the tray.
 
 To collect in the foreground without a tray, use:
 
@@ -80,9 +82,11 @@ written with six digits after the decimal point.
 
 Worklogs can reveal document names, sites, applications, user and host names,
 idle periods, and daily work patterns. WorkMuch makes `~/.workmuch` accessible
-only to its owner (`0700`) and creates worklogs and `error.log` with mode
-`0600`. These permissions do not protect copies made by backups, shell
-redirection, synchronization tools, or users with administrative access.
+only to its owner (`0700`) and creates worklogs, `error.log`, and `status.json`
+with mode `0600`. The status file retains the most recent successful app,
+window title, and idle time for the tray Status page. These permissions do not
+protect copies made by backups, shell redirection, synchronization tools, or
+users with administrative access.
 
 Review how those files are stored and retained before collecting sensitive
 work. The tray's `Status` page can also display the current window title, so
