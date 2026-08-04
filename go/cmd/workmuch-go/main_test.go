@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"workmuch-go/internal/app"
+	"workmuch-go/internal/backend"
 )
 
 func TestSelectRunModeDefaultsToTray(t *testing.T) {
@@ -21,4 +23,26 @@ func TestSelectRunModeUsesConsoleForQA(t *testing.T) {
 	opts.QAConsole = true
 
 	assert.Equal(t, runModeConsole, selectRunMode(opts))
+}
+
+func TestParseCommandDefaultsToRun(t *testing.T) {
+	t.Parallel()
+
+	cmd, showHelp, err := parseCommand([]string{"--qa-console"})
+	require.NoError(t, err)
+
+	assert.False(t, showHelp)
+	assert.Equal(t, commandRun, cmd.kind)
+	assert.True(t, cmd.opts.QAConsole)
+}
+
+func TestParseCommandRecognizesDoctor(t *testing.T) {
+	t.Parallel()
+
+	cmd, showHelp, err := parseCommand([]string{"doctor", "--backend", backend.BackendMacOSNative})
+	require.NoError(t, err)
+
+	assert.False(t, showHelp)
+	assert.Equal(t, commandDoctor, cmd.kind)
+	assert.Equal(t, backend.BackendMacOSNative, cmd.opts.Backend)
 }

@@ -40,6 +40,7 @@ type runner struct {
 	driver        driver
 	newController controllerFactory
 	showAbout     func() error
+	showStatus    func(opts app.Options) error
 }
 
 func Run(opts app.Options, logger *log.Logger) error {
@@ -57,6 +58,7 @@ func newRunner(driver driver, newController controllerFactory) runner {
 		driver:        driver,
 		newController: newController,
 		showAbout:     showAboutScreen,
+		showStatus:    showStatusScreen,
 	}
 }
 
@@ -96,6 +98,7 @@ func (r runner) Run(ctx context.Context, opts app.Options, logger *log.Logger) e
 		r.driver.SetTooltip("Logging active")
 
 		about := r.driver.AddMenuItem("About", "About Workmuch")
+		status := r.driver.AddMenuItem("Status", "Show Workmuch Status")
 
 		quit := r.driver.AddMenuItem("Quit", "Quit")
 		errCh := collector.Start(collectorCtx)
@@ -129,6 +132,19 @@ func (r runner) Run(ctx context.Context, opts app.Options, logger *log.Logger) e
 				case <-about.ClickedCh():
 					if err := r.showAbout(); err != nil {
 						logger.Printf("tray about failed: %v", err)
+					}
+				case <-collectorCtx.Done():
+					return
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-status.ClickedCh():
+					if err := r.showStatus(opts); err != nil {
+						logger.Printf("tray status failed: %v", err)
 					}
 				case <-collectorCtx.Done():
 					return

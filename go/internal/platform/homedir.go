@@ -30,3 +30,7 @@ func WorkLogPath(now time.Time, logDir string) string {
 func ErrorLogPath(logDir string) string {
 	return filepath.Join(logDir, "error.log")
 }
+
+func StatusPath(logDir string) string {
+	return filepath.Join(logDir, "status.json")
+}

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"workmuch-go/internal/app"
+	"workmuch-go/internal/doctor"
 	"workmuch-go/internal/platform"
 	"workmuch-go/internal/tray"
 )
@@ -22,13 +23,25 @@ const (
 	runModeTray
 )
 
+type commandKind int
+
+const (
+	commandRun commandKind = iota
+	commandDoctor
+)
+
+type command struct {
+	kind commandKind
+	opts app.Options
+}
+
 func main() {
 	exitCode := run()
 	os.Exit(exitCode)
 }
 
 func run() int {
-	opts, showHelp, err := app.ParseOptions(os.Args[1:])
+	cmd, showHelp, err := parseCommand(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n\n", err)
 		fmt.Fprint(os.Stderr, app.HelpText(filepath.Base(os.Args[0])))
@@ -39,24 +52,45 @@ func run() int {
 		return 0
 	}
 
-	logger, closeLogger := configureLogger(opts.QAConsole)
+	if cmd.kind == commandDoctor {
+		if err := executeDoctor(cmd.opts); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
+	logger, closeLogger := configureLogger(cmd.opts.QAConsole)
 	defer closeLogger()
 
 	logger.Printf("Program started")
-	logger.Printf("Recording at %fHz", opts.Rate)
-	logger.Printf("Waiting %f seconds before starting logging", opts.StartDelay)
+	logger.Printf("Recording at %fHz", cmd.opts.Rate)
+	logger.Printf("Waiting %f seconds before starting logging", cmd.opts.StartDelay)
 	logger.Printf("CSV columns: host, user, window_title, program_name, idle_seconds, timestamp_seconds")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := executeRunMode(ctx, opts, logger); err != nil {
+	if err := executeRunMode(ctx, cmd.opts, logger); err != nil {
 		logger.Printf("fatal error: %v", err)
 		return 1
 	}
 
 	logger.Printf("Program shutdown complete")
 	return 0
+}
+
+func parseCommand(args []string) (command, bool, error) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "doctor":
+			opts, showHelp, err := app.ParseOptions(args[1:])
+			return command{kind: commandDoctor, opts: opts}, showHelp, err
+		}
+	}
+
+	opts, showHelp, err := app.ParseOptions(args)
+	return command{kind: commandRun, opts: opts}, showHelp, err
 }
 
 func selectRunMode(opts app.Options) runMode {
@@ -75,6 +109,12 @@ func executeRunMode(ctx context.Context, opts app.Options, logger *log.Logger) e
 	default:
 		return fmt.Errorf("unsupported run mode: %d", selectRunMode(opts))
 	}
+}
+
+func executeDoctor(opts app.Options) error {
+	report := doctor.NewCollector(opts.Backend).Collect(context.Background())
+	fmt.Print(doctor.RenderText(report))
+	return nil
 }
 
 func configureLogger(qaConsole bool) (*log.Logger, func()) {

@@ -13,6 +13,7 @@ import (
 	"workmuch-go/internal/backend"
 	"workmuch-go/internal/logging"
 	"workmuch-go/internal/platform"
+	"workmuch-go/internal/status"
 )
 
 const backendResetInterval = 5 * time.Second
@@ -50,28 +51,44 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 	logBackendSelection(logger, opts.Backend, usageBackend.Name())
 	defer func() {
 		if closeErr := usageBackend.Close(); closeErr != nil {
-			logger.Printf("backend close failed: %v", closeErr)
+			logger.Print(formatLogMessage("warning", "backend close", closeErr, logField{key: "backend", value: usageBackend.Name()}))
 		}
 	}()
 
 	initialSample, sampleErr := usageBackend.Sample(ctx)
+	initialWarnings := []string{}
 	if sampleErr != nil {
-		logger.Printf("initial backend sample warning: %v", sampleErr)
+		message := formatLogMessage("warning", "initial backend sample", sampleErr, logField{key: "backend", value: usageBackend.Name()})
+		initialWarnings = append(initialWarnings, message)
+		logger.Print(message)
 	}
 	if initialSample.WindowTitle == "" {
-		logger.Printf("warning: system does not currently supply window titles")
+		message := formatLogMessage("warning", "system does not currently supply window titles", nil, logField{key: "backend", value: usageBackend.Name()})
+		initialWarnings = append(initialWarnings, message)
+		logger.Print(message)
 	}
 	if initialSample.ProgramName == "" {
-		logger.Printf("warning: system does not currently supply program names")
+		message := formatLogMessage("warning", "system does not currently supply program names", nil, logField{key: "backend", value: usageBackend.Name()})
+		initialWarnings = append(initialWarnings, message)
+		logger.Print(message)
 	}
 
-	output, closeOutput, err := openCSVOutput(opts)
+	output, err := openCSVOutput(opts)
 	if err != nil {
 		return err
 	}
-	defer closeOutput()
+	defer output.close()
 
-	csvWriter := logging.NewCSVWriter(output)
+	statusTracker := newCollectorStatusTracker(opts, usageBackend.Name(), output.workLogPath, output.logDir, logger)
+	if statusTracker != nil {
+		statusTracker.Start()
+		defer statusTracker.Stop()
+		for _, warning := range initialWarnings {
+			statusTracker.RecordWarning(warning)
+		}
+	}
+
+	csvWriter := logging.NewCSVWriter(output.writer)
 	period := time.Duration(float64(time.Second) / opts.Rate)
 	nextWakeAt := time.Now().Add(period)
 	resetAt := time.Now().Add(backendResetInterval)
@@ -86,21 +103,40 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 		now := time.Now()
 		if !now.Before(resetAt) {
 			if err := usageBackend.Reset(); err != nil {
-				logger.Printf("backend reset failed: %v", err)
+				message := formatLogMessage("warning", "backend reset", err, logField{key: "backend", value: usageBackend.Name()})
+				logger.Print(message)
+				if statusTracker != nil {
+					statusTracker.RecordWarning(message)
+				}
 			}
 			resetAt = time.Now().Add(backendResetInterval)
 		}
 
 		sample, sampleErr := usageBackend.Sample(ctx)
 		if sampleErr != nil {
-			logger.Printf("backend sample warning: %v", sampleErr)
+			message := formatLogMessage("warning", "backend sample", sampleErr, logField{key: "backend", value: usageBackend.Name()})
+			logger.Print(message)
+			if statusTracker != nil {
+				statusTracker.RecordWarning(message)
+			}
 		}
 
 		if err := csvWriter.WriteSample(sample, platform.NowUnixSeconds()); err != nil {
-			return fmt.Errorf("write csv record: %w", err)
+			wrappedErr := fmt.Errorf("write csv record: %w", err)
+			if statusTracker != nil {
+				statusTracker.RecordError(formatLogMessage("error", "write csv record", err, logField{key: "path", value: output.workLogPath}))
+			}
+			return wrappedErr
 		}
 		if err := csvWriter.Flush(); err != nil {
-			return fmt.Errorf("flush csv record: %w", err)
+			wrappedErr := fmt.Errorf("flush csv record: %w", err)
+			if statusTracker != nil {
+				statusTracker.RecordError(formatLogMessage("error", "flush csv record", err, logField{key: "path", value: output.workLogPath}))
+			}
+			return wrappedErr
+		}
+		if statusTracker != nil {
+			statusTracker.RecordSample(sampleErr == nil)
 		}
 
 		sleepDuration, updatedWakeAt := ComputeNextSleep(time.Now(), nextWakeAt, period)
@@ -131,30 +167,50 @@ func logBackendSelection(logger *log.Logger, requested string, active string) {
 	logger.Printf("backend requested=%s active=%s", requested, active)
 }
 
-func openCSVOutput(opts Options) (io.Writer, func(), error) {
+type csvOutput struct {
+	writer      io.Writer
+	close       func()
+	logDir      string
+	workLogPath string
+}
+
+func openCSVOutput(opts Options) (csvOutput, error) {
 	if opts.QAConsole {
-		return os.Stdout, func() {}, nil
+		return csvOutput{writer: os.Stdout, close: func() {}, workLogPath: "stdout"}, nil
 	}
 
 	homeDir, err := platform.UserHomeDir()
 	if err != nil {
-		return nil, nil, fmt.Errorf("resolve home directory: %w", err)
+		return csvOutput{}, fmt.Errorf("resolve home directory: %w", err)
 	}
 	logDir, err := platform.EnsureLogDir(homeDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ensure log directory: %w", err)
+		return csvOutput{}, fmt.Errorf("ensure log directory %s: %w", platform.LogDir(homeDir), err)
 	}
 
 	workLogPath := platform.WorkLogPath(time.Now(), logDir)
 	workLogFile, err := os.OpenFile(workLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open work log %s: %w", workLogPath, err)
+		return csvOutput{}, fmt.Errorf("open work log %s: %w", workLogPath, err)
 	}
 
 	closeFn := func() {
 		_ = workLogFile.Close()
 	}
-	return workLogFile, closeFn, nil
+	return csvOutput{
+		writer:      workLogFile,
+		close:       closeFn,
+		logDir:      logDir,
+		workLogPath: workLogPath,
+	}, nil
+}
+
+func newCollectorStatusTracker(opts Options, activeBackend string, workLogPath string, logDir string, logger *log.Logger) *runtimeStatusTracker {
+	if opts.QAConsole || logDir == "" {
+		return nil
+	}
+	store := status.NewStore(platform.StatusPath(logDir))
+	return newRuntimeStatusTracker(store, logger, time.Now, opts.Backend, activeBackend, workLogPath)
 }
 
 func sleepWithContext(ctx context.Context, duration time.Duration) error {

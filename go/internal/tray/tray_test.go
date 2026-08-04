@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -41,23 +43,37 @@ type fakeDriver struct {
 	title              string
 	tooltip            string
 	menuItems          []*fakeMenuItem
-	quitCalls          int
+	quitCalls          atomic.Int64
 	quitTriggersOnExit bool
 	onReady            func()
 	onExit             func()
+	ready              chan struct{}
+	quit               chan struct{}
+	quitOnce           sync.Once
+}
+
+func newFakeDriver(quitTriggersOnExit bool) *fakeDriver {
+	return &fakeDriver{
+		quitTriggersOnExit: quitTriggersOnExit,
+		ready:              make(chan struct{}),
+		quit:               make(chan struct{}),
+	}
 }
 
 func (d *fakeDriver) Run(onReady func(), onExit func()) {
 	d.onReady = onReady
 	d.onExit = onExit
 	onReady()
+	close(d.ready)
+	<-d.quit
+	if d.quitTriggersOnExit {
+		onExit()
+	}
 }
 
 func (d *fakeDriver) Quit() {
-	d.quitCalls++
-	if d.quitTriggersOnExit && d.onExit != nil {
-		d.onExit()
-	}
+	d.quitCalls.Add(1)
+	d.quitOnce.Do(func() { close(d.quit) })
 }
 
 func (d *fakeDriver) SetIcon(icon []byte) {
@@ -76,6 +92,15 @@ func (d *fakeDriver) AddMenuItem(title string, tooltip string) menuItem {
 	item := newFakeMenuItem(title, tooltip)
 	d.menuItems = append(d.menuItems, item)
 	return item
+}
+
+func waitForDriverReady(t *testing.T, driver *fakeDriver) {
+	t.Helper()
+	select {
+	case <-driver.ready:
+	case <-time.After(time.Second):
+		t.Fatal("tray did not become ready")
+	}
 }
 
 type fakeController struct {
@@ -102,7 +127,7 @@ func (c *fakeController) Wait() error {
 func TestRunSetsUpTrayAndStartsCollector(t *testing.T) {
 	t.Parallel()
 
-	driver := &fakeDriver{quitTriggersOnExit: true}
+	driver := newFakeDriver(true)
 	ctrl := newFakeController()
 	r := newRunner(driver, func(app.Options, *log.Logger) controller {
 		return ctrl
@@ -113,9 +138,7 @@ func TestRunSetsUpTrayAndStartsCollector(t *testing.T) {
 		done <- r.Run(context.Background(), app.DefaultOptions(), log.Default())
 	}()
 
-	require.Eventually(t, func() bool {
-		return len(driver.menuItems) == 2
-	}, time.Second, 10*time.Millisecond)
+	waitForDriverReady(t, driver)
 
 	assert.NotEmpty(t, driver.icon)
 	assert.Equal(t, "", driver.title)
@@ -123,8 +146,11 @@ func TestRunSetsUpTrayAndStartsCollector(t *testing.T) {
 	assert.Equal(t, "About", driver.menuItems[0].title)
 	assert.Equal(t, "About Workmuch", driver.menuItems[0].tooltip)
 	assert.False(t, driver.menuItems[0].disabled)
-	assert.Equal(t, "Quit", driver.menuItems[1].title)
-	assert.Equal(t, "Quit", driver.menuItems[1].tooltip)
+	assert.Equal(t, "Status", driver.menuItems[1].title)
+	assert.Equal(t, "Show Workmuch Status", driver.menuItems[1].tooltip)
+	assert.False(t, driver.menuItems[1].disabled)
+	assert.Equal(t, "Quit", driver.menuItems[2].title)
+	assert.Equal(t, "Quit", driver.menuItems[2].tooltip)
 	assert.Equal(t, 1, ctrl.startCalls)
 	require.NotNil(t, ctrl.startCtx)
 
@@ -135,7 +161,7 @@ func TestRunSetsUpTrayAndStartsCollector(t *testing.T) {
 func TestRunQuitMenuClickStopsCollectorAndExitsTray(t *testing.T) {
 	t.Parallel()
 
-	driver := &fakeDriver{quitTriggersOnExit: false}
+	driver := newFakeDriver(false)
 	ctrl := newFakeController()
 	r := newRunner(driver, func(app.Options, *log.Logger) controller {
 		return ctrl
@@ -146,11 +172,9 @@ func TestRunQuitMenuClickStopsCollectorAndExitsTray(t *testing.T) {
 		done <- r.Run(context.Background(), app.DefaultOptions(), log.Default())
 	}()
 
-	require.Eventually(t, func() bool {
-		return len(driver.menuItems) == 2
-	}, time.Second, 10*time.Millisecond)
+	waitForDriverReady(t, driver)
 
-	driver.menuItems[1].clicked <- struct{}{}
+	driver.menuItems[2].clicked <- struct{}{}
 
 	select {
 	case err := <-done:
@@ -158,20 +182,20 @@ func TestRunQuitMenuClickStopsCollectorAndExitsTray(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("run did not finish after quit click")
 	}
-	assert.Equal(t, 1, driver.quitCalls)
+	assert.Equal(t, int64(1), driver.quitCalls.Load())
 }
 
 func TestRunAboutMenuClickInvokesAboutHandler(t *testing.T) {
 	t.Parallel()
 
-	driver := &fakeDriver{quitTriggersOnExit: true}
+	driver := newFakeDriver(true)
 	ctrl := newFakeController()
-	var aboutCalls int
+	aboutCalled := make(chan struct{}, 1)
 	r := newRunner(driver, func(app.Options, *log.Logger) controller {
 		return ctrl
 	})
 	r.showAbout = func() error {
-		aboutCalls++
+		aboutCalled <- struct{}{}
 		return nil
 	}
 
@@ -180,16 +204,50 @@ func TestRunAboutMenuClickInvokesAboutHandler(t *testing.T) {
 		done <- r.Run(context.Background(), app.DefaultOptions(), log.Default())
 	}()
 
-	require.Eventually(t, func() bool {
-		return len(driver.menuItems) == 2
-	}, time.Second, 10*time.Millisecond)
+	waitForDriverReady(t, driver)
 
 	driver.menuItems[0].clicked <- struct{}{}
 
-	require.Eventually(t, func() bool {
-		return aboutCalls == 1
-	}, time.Second, 10*time.Millisecond)
-	assert.Equal(t, 0, driver.quitCalls)
+	select {
+	case <-aboutCalled:
+	case <-time.After(time.Second):
+		t.Fatal("about handler was not called")
+	}
+	assert.Equal(t, int64(0), driver.quitCalls.Load())
+
+	driver.Quit()
+	require.NoError(t, <-done)
+}
+
+func TestRunStatusMenuClickInvokesStatusHandler(t *testing.T) {
+	t.Parallel()
+
+	driver := newFakeDriver(true)
+	ctrl := newFakeController()
+	statusCalled := make(chan struct{}, 1)
+	r := newRunner(driver, func(app.Options, *log.Logger) controller {
+		return ctrl
+	})
+	r.showStatus = func(app.Options) error {
+		statusCalled <- struct{}{}
+		return nil
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- r.Run(context.Background(), app.DefaultOptions(), log.Default())
+	}()
+
+	waitForDriverReady(t, driver)
+
+	driver.menuItems[1].clicked <- struct{}{}
+
+	select {
+	case <-statusCalled:
+	case <-time.After(time.Second):
+		t.Fatal("status handler was not called")
+	}
+	assert.Equal(t, int64(0), driver.quitCalls.Load())
 
 	driver.Quit()
 	require.NoError(t, <-done)
@@ -198,7 +256,7 @@ func TestRunAboutMenuClickInvokesAboutHandler(t *testing.T) {
 func TestRunContextCancelStopsCollectorAndExitsTray(t *testing.T) {
 	t.Parallel()
 
-	driver := &fakeDriver{quitTriggersOnExit: true}
+	driver := newFakeDriver(true)
 	ctrl := newFakeController()
 	r := newRunner(driver, func(app.Options, *log.Logger) controller {
 		return ctrl
@@ -211,14 +269,12 @@ func TestRunContextCancelStopsCollectorAndExitsTray(t *testing.T) {
 		done <- r.Run(ctx, app.DefaultOptions(), log.Default())
 	}()
 
-	require.Eventually(t, func() bool {
-		return len(driver.menuItems) == 2
-	}, time.Second, 10*time.Millisecond)
+	waitForDriverReady(t, driver)
 
 	cancel()
 
 	require.NoError(t, <-done)
-	assert.Equal(t, 1, driver.quitCalls)
+	assert.Equal(t, int64(1), driver.quitCalls.Load())
 	require.NotNil(t, ctrl.startCtx)
 	assert.ErrorIs(t, ctrl.startCtx.Err(), context.Canceled)
 }
@@ -226,7 +282,7 @@ func TestRunContextCancelStopsCollectorAndExitsTray(t *testing.T) {
 func TestRunReturnsCollectorFailure(t *testing.T) {
 	t.Parallel()
 
-	driver := &fakeDriver{quitTriggersOnExit: true}
+	driver := newFakeDriver(true)
 	ctrl := newFakeController()
 	expectedErr := errors.New("collector failed")
 	ctrl.errCh <- expectedErr
@@ -236,5 +292,5 @@ func TestRunReturnsCollectorFailure(t *testing.T) {
 	})
 
 	require.ErrorIs(t, r.Run(context.Background(), app.DefaultOptions(), log.Default()), expectedErr)
-	assert.Equal(t, 1, driver.quitCalls)
+	assert.Equal(t, int64(1), driver.quitCalls.Load())
 }

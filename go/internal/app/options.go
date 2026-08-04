@@ -98,7 +98,10 @@ func ParseOptions(args []string) (Options, bool, error) {
 }
 
 func HelpText(program string) string {
-	return fmt.Sprintf(`Usage: %s [options]
+	return fmt.Sprintf(`Usage: %s [command] [options]
+
+Commands:
+  doctor                    Print backend, permission, log, service, and runtime diagnostics
 
 Default behavior:
   Launch the tray icon and log activity in the background.

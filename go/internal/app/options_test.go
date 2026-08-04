@@ -44,6 +44,7 @@ func TestHelpTextDocumentsTrayDefaultAndQAMode(t *testing.T) {
 	helpText := HelpText("workmuch-go")
 
 	assert.Contains(t, helpText, "Launch the tray icon and log activity in the background.")
+	assert.Contains(t, helpText, "doctor")
 	assert.Contains(t, helpText, "--qa-console            Disable tray mode and write CSV to stdout")
 }
 
