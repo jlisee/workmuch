@@ -5,7 +5,7 @@ Systray support is now implemented for the Go app, using
 
 ## Current behavior
 
-- `./run_go.sh` launches the tray app by default.
+- `./run.sh` launches the tray app by default.
 - Logging starts immediately on launch.
 - Tray menu items in v1:
   - `About` (opens a basic about screen)

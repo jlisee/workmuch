@@ -8,7 +8,7 @@ as a supported session.
 Run the diagnostics before starting collection:
 
 ```bash
-./run_go.sh doctor
+./run.sh doctor
 ```
 
 On Linux, `doctor` reports the detected desktop session, whether that session
@@ -17,7 +17,7 @@ result. It also shows a live app, window title, and idle time when sampling
 succeeds. To check the connection error shown for an unusable display, run:
 
 ```bash
-DISPLAY=:invalid ./run_go.sh doctor
+DISPLAY=:invalid ./run.sh doctor
 ```
 
 `doctor` samples only for its report. It does not append a worklog row. The
@@ -29,7 +29,7 @@ and it skips samples where neither an app nor a window title is available.
 Run without options to start the tray collector:
 
 ```bash
-./run_go.sh
+./run.sh
 ```
 
 Collection starts immediately and writes the daily worklog. The tray menu has
@@ -41,14 +41,14 @@ probe. `Quit` stops collection and exits the tray.
 To collect in the foreground without a tray, use:
 
 ```bash
-./run_go.sh --no-tray
+./run.sh --no-tray
 ```
 
 This writes the normal daily worklog until Ctrl+C stops the process. For
 manual QA, stream rows to standard output instead:
 
 ```bash
-./run_go.sh --qa-console
+./run.sh --qa-console
 ```
 
 QA console mode does not create or append a worklog or `error.log`. Redirecting

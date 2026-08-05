@@ -64,7 +64,7 @@ Usage
 
        ./run.sh --help
 
-Run `workmuch.pytime` with your preferred options and it will record data into
+Run `./run.sh` with your preferred options and it will record data into
 the `~/.workmuch` directory.
 
 Go tray collector
@@ -72,7 +72,7 @@ Go tray collector
 
 The Go entrypoint now runs as a tray app by default:
 
-    ./run_go.sh
+    ./run.sh
 
 When launched this way, logging starts immediately and continues in the
 background. The tray menu includes:
@@ -83,16 +83,16 @@ background. The tray menu includes:
 
 A pre-compile version is can be found by doing:
 
-    ./build_go.sh
+    ./build.sh
     ./bin/workmuch
 
 Use foreground collection without a tray to write the normal daily worklog:
 
-    ./run_go.sh --no-tray
+    ./run.sh --no-tray
 
 Use QA console mode to bypass tray UI and stream CSV to stdout:
 
-    ./run_go.sh --qa-console
+    ./run.sh --qa-console
 
 For manual QA, use console mode to avoid writing any files:
 
@@ -110,7 +110,7 @@ Tests
 
 Run tests with:
 
-    ./test.sh -q
+    ./test.sh
 
 macOS backend benchmark
 -----------------------

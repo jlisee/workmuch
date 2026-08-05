@@ -23,7 +23,7 @@ checkout, but it still needs an installer/service layer before it is a
 ## Current state
 
 - [x] Go collector entrypoint exists at `cmd/workmuch-go`.
-- [x] `./run_go.sh` launches the Go app.
+- [x] `./run.sh` launches the Go app.
 - [x] Tray mode is the default run mode.
 - [x] Tray menu currently supports `About` and `Quit`.
 - [x] `--qa-console` bypasses tray mode and streams CSV rows to stdout.

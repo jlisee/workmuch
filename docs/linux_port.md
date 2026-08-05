@@ -26,15 +26,15 @@ Use red/green TDD with `testify` to replace the Linux backend stub.
 Run the automated checks:
 
 ```bash
-./test_go.sh
+./test.sh
 ./lint.sh
 ```
 
 Then run the manual checks:
 
 ```bash
-./run_go.sh doctor
-./run_go.sh --qa-console
+./run.sh doctor
+./run.sh --qa-console
 ```
 
 Switch among several applications and verify that program, title, and idle
@@ -52,9 +52,9 @@ Once sampling is correct:
 Run the automated checks, then start a manual collection:
 
 ```bash
-./test_go.sh
+./test.sh
 ./lint.sh
-./run_go.sh --no-tray
+./run.sh --no-tray
 ```
 
 Run it for several minutes, stop it with Ctrl+C, and validate the resulting

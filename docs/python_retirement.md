@@ -7,8 +7,8 @@ and makes Go the only supported implementation.
 
 The retirement also removes the extra `go` directory. The Go module will move
 to the repository root; the Go source itself will not be deleted. The existing
-`run_go.sh` and `test_go.sh` behavior will become the primary `run.sh` and
-`test.sh` behavior, after which the `_go.sh` files will be removed.
+The Go behavior is now the primary `run.sh` and `test.sh` behavior. The
+repository has no `_go.sh` wrappers.
 
 Each step must remain green, receive its own review, and stop before the next
 step begins. Use red/green TDD with `testify` for any behavior change. Pure file
@@ -25,6 +25,7 @@ workmuch/
 ├── internal/
 ├── go.mod
 ├── go.sum
+├── build.sh
 ├── run.sh
 ├── test.sh
 ├── lint.sh
@@ -48,7 +49,7 @@ Before moving or deleting files:
 - Run the current Go test and lint entrypoints.
 
 ```bash
-./test_go.sh
+./test.sh
 ./lint.sh
 ```
 
@@ -64,7 +65,7 @@ Move the Go module without changing its module name or behavior:
 - Move `go/cmd` to `cmd`.
 - Move `go/internal` to `internal`.
 - Preserve embedded tray assets under `internal/tray/assets`.
-- Update `run_go.sh`, `test_go.sh`, and `lint.sh` so they run from the
+- Update `run.sh`, `test.sh`, and `lint.sh` so they run from the
   repository root and no longer `cd` into `go`.
 - Update `.gitignore` entries that still assume build output is below `go/`.
 - Remove the empty `go` directory.
@@ -76,7 +77,7 @@ resolve.
 Run:
 
 ```bash
-./test_go.sh
+./test.sh
 ./lint.sh
 go test ./...
 go vet ./...
@@ -95,6 +96,7 @@ Make the existing primary script names launch and test Go:
   behavior.
 - Preserve executable permissions on both primary scripts.
 - Remove `run_go.sh` and `test_go.sh` after the primary scripts work.
+- Promote `build_go.sh` to `build.sh` and remove the final `_go.sh` wrapper.
 - Update `AGENTS.md`, `README`, and all documents to use `./run.sh` and
   `./test.sh`.
 - Keep `./lint.sh` as the formatting, vet, and full-test entrypoint.
