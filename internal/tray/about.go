@@ -6,32 +6,35 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"workmuch-go/internal/buildinfo"
 )
 
 const aboutMessage = "Current app and window title based activity tracker"
 const aboutTitle = "About Workmuch"
 
 func showAboutScreen() error {
-	cmd, err := aboutCommand(runtime.GOOS)
+	cmd, err := aboutCommand(runtime.GOOS, buildinfo.Version)
 	if err != nil {
 		return err
 	}
 	return cmd.Start()
 }
 
-func aboutCommand(goos string) (*exec.Cmd, error) {
+func aboutCommand(goos string, version string) (*exec.Cmd, error) {
+	message := aboutMessage + "\n\nVersion " + version
 	switch goos {
 	case "darwin":
-		script := `display dialog "` + aboutMessage + `" with title "` + aboutTitle + `" buttons {"OK"} default button "OK"`
+		script := `display dialog "` + message + `" with title "` + aboutTitle + `" buttons {"OK"} default button "OK"`
 		return exec.Command("osascript", "-e", script), nil
 	case "linux":
-		target, err := ensureAboutHTML()
+		target, err := ensureAboutHTML(version)
 		if err != nil {
 			return nil, err
 		}
 		return exec.Command("xdg-open", target), nil
 	case "windows":
-		target, err := ensureAboutHTML()
+		target, err := ensureAboutHTML(version)
 		if err != nil {
 			return nil, err
 		}
@@ -41,7 +44,7 @@ func aboutCommand(goos string) (*exec.Cmd, error) {
 	}
 }
 
-func ensureAboutHTML() (string, error) {
+func ensureAboutHTML(version string) (string, error) {
 	path := filepath.Join(os.TempDir(), "workmuch-about.html")
 	aboutHTML := `<!doctype html>
 <html>
@@ -84,6 +87,7 @@ func ensureAboutHTML() (string, error) {
   <main>
     <h1>Workmuch</h1>
     <p>` + aboutMessage + `</p>
+    <p>Version ` + version + `</p>
   </main>
 </body>
 </html>`

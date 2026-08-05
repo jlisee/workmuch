@@ -116,6 +116,7 @@ Options:
       --qa-console            Disable tray mode and write CSV to stdout
       --no-tray               Disable tray mode and write CSV to the daily worklog
       --backend <name>        One of: auto, macos-subprocess, macos-native, linux
+      --version               Show the WorkMuch build version
   -h, --help                  Show this help
 `, program)
 }

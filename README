@@ -69,6 +69,15 @@ Build a local binary at `bin/workmuch`:
 ./bin/workmuch --help
 ```
 
+Show the build version:
+
+```bash
+./bin/workmuch --version
+```
+
+Ordinary builds report `dev`. Published builds use the version recorded in the
+GitHub Release and Debian package.
+
 ### Backends
 
 `--backend auto` is the default. It selects `linux` on Linux and

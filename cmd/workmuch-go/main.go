@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"workmuch-go/internal/app"
+	"workmuch-go/internal/buildinfo"
 	"workmuch-go/internal/doctor"
 	"workmuch-go/internal/platform"
 	"workmuch-go/internal/tray"
@@ -28,6 +29,7 @@ type commandKind int
 const (
 	commandRun commandKind = iota
 	commandDoctor
+	commandVersion
 )
 
 type command struct {
@@ -49,6 +51,10 @@ func run() int {
 	}
 	if showHelp {
 		fmt.Print(app.HelpText(filepath.Base(os.Args[0])))
+		return 0
+	}
+	if cmd.kind == commandVersion {
+		writeVersion(os.Stdout, buildinfo.Version)
 		return 0
 	}
 
@@ -86,11 +92,20 @@ func parseCommand(args []string) (command, bool, error) {
 		case "doctor":
 			opts, showHelp, err := app.ParseOptions(args[1:])
 			return command{kind: commandDoctor, opts: opts}, showHelp, err
+		case "--version":
+			if len(args) != 1 {
+				return command{}, false, fmt.Errorf("--version does not accept arguments")
+			}
+			return command{kind: commandVersion}, false, nil
 		}
 	}
 
 	opts, showHelp, err := app.ParseOptions(args)
 	return command{kind: commandRun, opts: opts}, showHelp, err
+}
+
+func writeVersion(writer io.Writer, version string) {
+	fmt.Fprintf(writer, "workmuch %s\n", version)
 }
 
 func selectRunMode(opts app.Options) runMode {

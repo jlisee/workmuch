@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,7 @@ import (
 
 	"workmuch-go/internal/app"
 	"workmuch-go/internal/backend"
+	"workmuch-go/internal/buildinfo"
 )
 
 func TestSelectRunModeDefaultsToTray(t *testing.T) {
@@ -65,4 +67,23 @@ func TestParseCommandRecognizesDoctor(t *testing.T) {
 	assert.False(t, showHelp)
 	assert.Equal(t, commandDoctor, cmd.kind)
 	assert.Equal(t, backend.BackendMacOSNative, cmd.opts.Backend)
+}
+
+func TestParseCommandRecognizesVersion(t *testing.T) {
+	t.Parallel()
+
+	cmd, showHelp, err := parseCommand([]string{"--version"})
+	require.NoError(t, err)
+
+	assert.False(t, showHelp)
+	assert.Equal(t, commandVersion, cmd.kind)
+}
+
+func TestWriteVersionUsesBuildVersion(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	writeVersion(&output, buildinfo.Version)
+
+	assert.Equal(t, "workmuch dev\n", output.String())
 }

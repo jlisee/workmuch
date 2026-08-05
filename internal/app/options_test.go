@@ -48,6 +48,7 @@ func TestHelpTextDocumentsTrayDefaultAndQAMode(t *testing.T) {
 	assert.Contains(t, helpText, "doctor")
 	assert.Contains(t, helpText, "--qa-console            Disable tray mode and write CSV to stdout")
 	assert.Contains(t, helpText, "--no-tray               Disable tray mode and write CSV to the daily worklog")
+	assert.Contains(t, helpText, "--version               Show the WorkMuch build version")
 }
 
 func TestParseOptionsRateMustBePositive(t *testing.T) {
