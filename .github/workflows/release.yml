@@ -1,0 +1,83 @@
+name: Release Debian packages
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Validate, package, and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Fetch default branch and annotated tags
+        run: |
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --force --tags origin
+          git remote set-head origin --auto || true
+
+      - name: Validate annotated release tag
+        run: |
+          version=$(go run ./cmd/workmuch-version validate-tag "$GITHUB_REF_NAME")
+          echo "WORKMUCH_VERSION=$version" >>"$GITHUB_ENV"
+
+      - name: Run tests
+        run: ./test_go.sh
+
+      - name: Run lint
+        run: ./lint.sh
+
+      - name: Build verification packages
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --snapshot --clean
+        env:
+          WORKMUCH_VERSION: ${{ env.WORKMUCH_VERSION }}
+
+      - name: Verify Debian package contents
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lintian
+          ./packaging/verify-debs.sh "$WORKMUCH_VERSION"
+          lintian --fail-on error,warning dist/*.deb
+
+      - name: Test package installation without a desktop session
+        run: |
+          mkdir -p "$HOME/.workmuch"
+          touch "$HOME/.workmuch/release-test-marker"
+          sudo apt-get install --yes "./dist/workmuch_${WORKMUCH_VERSION}_amd64.deb"
+          test "$(/usr/bin/workmuch --version)" = "workmuch $WORKMUCH_VERSION"
+          systemctl --global is-enabled workmuch.service
+          qa_runtime_dir=$(mktemp -d /tmp/workmuch-systemd-runtime.XXXXXX)
+          XDG_RUNTIME_DIR="$qa_runtime_dir" \
+            systemd-analyze --user verify /usr/lib/systemd/user/workmuch.service
+          sudo apt-get install --reinstall --yes "./dist/workmuch_${WORKMUCH_VERSION}_amd64.deb"
+          sudo apt-get remove --yes workmuch
+          test -e "$HOME/.workmuch/release-test-marker"
+
+      - name: Build and publish Debian packages
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

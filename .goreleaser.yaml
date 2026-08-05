@@ -1,0 +1,119 @@
+version: 2
+
+project_name: workmuch
+
+builds:
+  - &workmuch-build
+    id: workmuch-amd64
+    main: ./cmd/workmuch-go
+    binary: workmuch
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X workmuch-go/internal/buildinfo.Version={{ .Version }}
+
+  - <<: *workmuch-build
+    id: workmuch-arm64
+    goarch:
+      - arm64
+
+archives:
+  - id: no-loose-binaries
+    ids:
+      - workmuch-amd64
+      - workmuch-arm64
+    formats:
+      - none
+
+nfpms:
+  - &workmuch-deb
+    id: workmuch-deb-amd64
+    package_name: workmuch
+    file_name_template: "workmuch_{{ .Version }}_{{ .Arch }}.deb"
+    ids:
+      - workmuch-amd64
+    vendor: WorkMuch
+    homepage: https://github.com/jlisee/workmuch
+    maintainer: Joseph Lisee <jlisee@gmail.com>
+    description: |-
+      Desktop activity collector for X11 sessions
+      WorkMuch records the active application, window title, and idle time to
+      private per-user worklogs.
+    license: MIT
+    formats:
+      - deb
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+    changelog: packaging/debian/changelog.yaml
+    dependencies:
+      - init-system-helpers (>= 1.52)
+    contents:
+      - src: packaging/systemd/workmuch.service
+        dst: /usr/lib/systemd/user/workmuch.service
+        file_info:
+          mode: 0644
+      - src: packaging/debian/copyright
+        dst: /usr/share/doc/workmuch/copyright
+        file_info:
+          mode: 0644
+      - src: README
+        dst: /usr/share/doc/workmuch/README
+        file_info:
+          mode: 0644
+      - src: docs/debian-service.md
+        dst: /usr/share/doc/workmuch/service.md
+        file_info:
+          mode: 0644
+    scripts:
+      postinstall: packaging/debian/postinstall
+      preremove: packaging/debian/preremove
+      postremove: packaging/debian/postremove
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - no-manual-page
+        - unknown-field Architecture-Variant
+        # The required version has no Debian revision, so lintian treats it as native.
+        - wrong-name-for-changelog-of-native-package
+
+  - <<: *workmuch-deb
+    id: workmuch-deb-arm64
+    ids:
+      - workmuch-arm64
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - no-manual-page
+        - wrong-name-for-changelog-of-native-package
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: >-
+    {{- if index .Env "WORKMUCH_VERSION" -}}
+      {{ .Env.WORKMUCH_VERSION }}
+    {{- else -}}
+      {{ incpatch .Version }}-snapshot
+    {{- end -}}
+
+changelog:
+  use: git
+  sort: asc
+
+release:
+  draft: false
+  prerelease: false
+  make_latest: true
+  name_template: "WorkMuch {{ .Version }}"
+  include_meta: false

@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || \
+    [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
+	if [ -z "${DPKG_ROOT:-}" ]; then
+		# This only removes masks created by deb-systemd-helper.
+		deb-systemd-helper --user unmask workmuch.service >/dev/null || true
+
+		# was-enabled defaults to true, so a fresh install is enabled.
+		if deb-systemd-helper --quiet --user was-enabled workmuch.service; then
+			deb-systemd-helper --user enable workmuch.service >/dev/null || true
+		else
+			deb-systemd-helper --user update-state workmuch.service >/dev/null || true
+		fi
+	fi
+fi
+
+if [ -z "${DPKG_ROOT:-}" ] && [ -d /run/systemd/system ]; then
+	systemctl --global daemon-reload >/dev/null || true
+	# This is a no-op when there are no active user managers.
+	deb-systemd-invoke --user restart workmuch.service >/dev/null || true
+fi

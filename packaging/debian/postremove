@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "remove" ]; then
+	if [ -z "${DPKG_ROOT:-}" ] && command -v deb-systemd-helper >/dev/null 2>&1; then
+		deb-systemd-helper --user mask workmuch.service >/dev/null || true
+	fi
+fi
+
+if [ "$1" = "purge" ]; then
+	if [ -z "${DPKG_ROOT:-}" ] && command -v deb-systemd-helper >/dev/null 2>&1; then
+		deb-systemd-helper --user purge workmuch.service >/dev/null || true
+		deb-systemd-helper --user unmask workmuch.service >/dev/null || true
+	fi
+fi
+
+if [ -z "${DPKG_ROOT:-}" ] && [ "$1" = "remove" ] && \
+    [ -d /run/systemd/system ]; then
+	systemctl --global daemon-reload >/dev/null || true
+fi

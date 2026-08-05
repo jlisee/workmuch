@@ -1,0 +1,11 @@
+- semver: "0.0.0"
+  deb:
+    urgency: "low"
+    distributions:
+      - "stable"
+  date: "2026-08-05T00:00:00Z"
+  packager: "Joseph Lisee <jlisee@gmail.com>"
+  urgency: "low"
+  distribution: "stable"
+  changes:
+    - note: "Add the first Debian packages and systemd user service."

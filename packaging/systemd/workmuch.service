@@ -1,0 +1,17 @@
+[Unit]
+Description=WorkMuch desktop activity collector
+Documentation=file:/usr/share/doc/workmuch/service.md
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=30s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecCondition=/bin/sh -c 'test -n "$DISPLAY"'
+ExecStart=/usr/bin/workmuch --no-tray --backend linux
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=graphical-session.target

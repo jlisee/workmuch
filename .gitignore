@@ -1,4 +1,5 @@
 bin/
+dist/
 coverage.out
 .gocache/
 .gocache-local/

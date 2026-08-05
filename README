@@ -94,6 +94,35 @@ with CGO enabled, and `linux` requires Linux with an accessible X11 display.
 See [Linux usage](docs/linux.md) for X11 diagnostics, Wayland limitations, the
 CSV format, file locations, and privacy guidance.
 
+## Debian packages
+
+GitHub Releases provide Linux `.deb` packages for amd64 and arm64. Download the
+package matching the machine architecture and install it with apt so local
+dependencies are resolved:
+
+```bash
+sudo apt install ./workmuch_<version>_amd64.deb
+```
+
+The package globally enables a systemd user service. Each logged-in graphical
+user runs their own unprivileged collector and writes only to their own
+`~/.workmuch`. See [Debian user service](docs/debian-service.md) for status,
+journal, opt-out, and display-support commands. Packages are distributed
+directly through GitHub Releases; WorkMuch does not provide an APT repository.
+
+## Releases
+
+Maintainers create a release from a clean checkout with:
+
+```bash
+./release.sh
+```
+
+The script fetches full origin history and tags, runs tests and lint, calculates
+the repository version, creates an annotated reproducibility tag, and pushes
+it. The tag-triggered workflow publishes stable GitHub Releases containing the
+amd64 and arm64 Debian packages plus checksums and generated release notes.
+
 ## Tests and lint
 
 Run the unit tests:
