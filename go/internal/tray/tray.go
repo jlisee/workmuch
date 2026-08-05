@@ -12,7 +12,7 @@ import (
 	"workmuch-go/internal/app"
 )
 
-//go:embed assets/icon32x32.png
+//go:embed assets/icon32x32_light.png
 var trayIcon []byte
 
 type menuItem interface {
