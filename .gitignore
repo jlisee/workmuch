@@ -3,8 +3,8 @@ __pycache__/
 .venv/
 workmuch.egg-info/
 
-go/bin/
-go/coverage.out
+bin/
+coverage.out
 .gocache/
 .gocache-local/
 .gomodcache/

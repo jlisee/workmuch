@@ -84,7 +84,7 @@ background. The tray menu includes:
 A pre-compile version is can be found by doing:
 
     ./build_go.sh
-    ./go/bin/workmuch
+    ./bin/workmuch
 
 Use foreground collection without a tray to write the normal daily worklog:
 

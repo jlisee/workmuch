@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/go"
-export GOCACHE="${GOCACHE:-$(pwd)/../.gocache}"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+cd "$SCRIPT_DIR"
+export GOCACHE="${GOCACHE:-$SCRIPT_DIR/.gocache}"
 mkdir -p "$GOCACHE"
 
 unformatted="$(gofmt -l .)"
