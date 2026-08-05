@@ -81,6 +81,11 @@ background. The tray menu includes:
 - `Status` (opens collector and backend diagnostics)
 - `Quit`
 
+A pre-compile version is can be found by doing:
+
+    ./build_go.sh
+    ./go/bin/workmuch
+
 Use foreground collection without a tray to write the normal daily worklog:
 
     ./run_go.sh --no-tray
