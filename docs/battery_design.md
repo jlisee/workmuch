@@ -48,7 +48,7 @@ Useful Apple background:
 ## Design Principles
 
 1. Use native OS APIs for steady-state collection.
-   Subprocess-based sampling is useful as a fallback and migration aid, but it
+   Subprocess-based sampling is useful as a fallback, but it
    launches multiple processes per sample and should not be the long-running
    default on laptops.
 
@@ -162,8 +162,7 @@ Example interpretation:
 
 - `macos-native`: `Native=true`, `ExpensiveSample=false`
 - `macos-subprocess`: `Native=false`, `ExpensiveSample=true`
-- Linux X11 backend, once implemented: depends on whether it uses native X11
-  calls directly or subprocess helpers
+- Linux X11 backend: direct X11 calls through the pure-Go X11 client
 
 The collector can use `ExpensiveSample` to lower the default sample rate or emit
 a warning when a user chooses a battery-costly backend.

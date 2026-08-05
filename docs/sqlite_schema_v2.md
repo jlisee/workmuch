@@ -1,6 +1,7 @@
 # WorkMuch SQLite Schema v2
 
-This document explains the schema in `/Users/jlisee/code/workmuch/sqlite_schema_v2.sql` and how to use it for:
+This document explains the repository-root `sqlite_schema_v2.sql` schema and
+how to use it for:
 
 - durable raw activity logging
 - incremental (process-once) conversion into activity spans
@@ -101,7 +102,7 @@ Adds `start_at_utc` / `end_at_utc` for reporting/debugging.
 Create a database and apply schema:
 
 ```bash
-sqlite3 /path/to/workmuch.db ".read /Users/jlisee/code/workmuch/sqlite_schema_v2.sql"
+sqlite3 /path/to/workmuch.db ".read sqlite_schema_v2.sql"
 ```
 
 Recommended connection pragmas in app code:

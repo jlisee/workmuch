@@ -1,120 +1,100 @@
-========
-WorkMuch
-========
+# WorkMuch
 
-Copyright (c) 2011 Joseph Lisee
-All rights reserved.
+Copyright (c) 2011 Joseph Lisee. All rights reserved.
 
+## License
 
-License information
--------------------
+WorkMuch is available under the MIT License. See [LICENSE](LICENSE) for the
+license text and warranty disclaimer.
 
-The OSI MIT License is used.  Please See the file "LICENSE" for information on
-the history of this software, terms & conditions for usage, and a DISCLAIMER OF
-ALL WARRANTIES.
+## About
 
+WorkMuch records the active application, window title, and idle time at a
+configurable sample rate. It is a Go application.
 
-About
------
+- Linux uses a pure-Go X11 backend for Xorg sessions.
+- macOS uses native AppKit, Accessibility, and CoreGraphics APIs by default.
 
-This tool records which program/window you are currently using and your idle
-time at a configurable sample rate so you can analyze what you actually use
-your computer for.
+## Requirements
 
-- Linux: the Go collector uses pure-Go X11; the Python collector uses
-  `python-xlib` + `libX11`/`libXss`
-- macOS: defaults to native framework APIs (AppKit + Accessibility + CoreGraphics)
+- Go 1.26 or later, as declared in `go.mod`. Go downloads the module
+  dependencies recorded in `go.mod` and `go.sum` when the scripts run.
+- On Linux, an accessible X11/Xorg session with `$DISPLAY` set. The backend
+  uses the X11 Screen Saver extension through `github.com/jezek/xgb`; no
+  X11 development package is required.
+- On macOS, use the normal CGO-enabled Go toolchain so the native backend can
+  link the system frameworks. The `macos-subprocess` fallback uses the system
+  `osascript` and `ioreg` commands.
 
+### macOS permissions
 
-Dependencies
-------------
+Accessibility permission lets the native backend obtain focused window titles.
+Without it, a focused title can be unavailable. Run `./run.sh doctor` to see
+the current permission and backend report.
 
-For the Python collector on Linux, install the required X11 libraries using::
+## Usage
 
-    sudo apt-get install libX11-dev libXss-dev
+Show the available commands and options:
 
-This project now uses `uv` to manage the Python runtime and dependencies from
-`pyproject.toml`.
-All Python source code now lives under the `workmuch` package, including
-`workmuch.pytime`.
+```bash
+./run.sh --help
+```
 
-macOS permissions
------------------
+Start the tray collector, which begins logging immediately:
 
-The native macOS backend needs Accessibility permission to read the focused
-window title. Without this permission:
+```bash
+./run.sh
+```
 
-- app name and idle time still work
-- window title is returned as an empty string
+The tray menu provides About, Status, and Quit. Normal tray collection and
+`--no-tray` write daily worklogs under `~/.workmuch`.
 
-The backend can be selected with the environment variable:
+Run the collector in the foreground without a tray:
 
-- `WORKMUCH_MAC_BACKEND=native` (default)
-- `WORKMUCH_MAC_BACKEND=subprocess` (temporary fallback during migration)
+```bash
+./run.sh --no-tray
+```
 
+For manual QA, write CSV rows to standard output without creating a worklog or
+error log:
 
-Usage
------
+```bash
+./run.sh --qa-console
+```
 
-1. Install dependencies into the project environment:
+Build a local binary at `bin/workmuch`:
 
-       uv sync
+```bash
+./build.sh
+./bin/workmuch --help
+```
 
-2. Run the program:
+### Backends
 
-       ./run.sh --help
+`--backend auto` is the default. It selects `linux` on Linux and
+`macos-native` on macOS. Select a supported backend explicitly when needed:
 
-Run `./run.sh` with your preferred options and it will record data into
-the `~/.workmuch` directory.
+```bash
+./run.sh --backend macos-subprocess --no-tray
+```
 
-Go tray collector
------------------
+`macos-subprocess` is a Go implementation and an explicit macOS fallback; it
+does not require or invoke a separate collector. `macos-native` requires macOS
+with CGO enabled, and `linux` requires Linux with an accessible X11 display.
 
-The Go entrypoint now runs as a tray app by default:
+See [Linux usage](docs/linux.md) for X11 diagnostics, Wayland limitations, the
+CSV format, file locations, and privacy guidance.
 
-    ./run.sh
+## Tests and lint
 
-When launched this way, logging starts immediately and continues in the
-background. The tray menu includes:
+Run the unit tests:
 
-- `About` (opens a basic about screen)
-- `Status` (opens collector and backend diagnostics)
-- `Quit`
+```bash
+./test.sh
+```
 
-A pre-compile version is can be found by doing:
+Run formatting checks, `go vet`, and the full test suite:
 
-    ./build.sh
-    ./bin/workmuch
-
-Use foreground collection without a tray to write the normal daily worklog:
-
-    ./run.sh --no-tray
-
-Use QA console mode to bypass tray UI and stream CSV to stdout:
-
-    ./run.sh --qa-console
-
-For manual QA, use console mode to avoid writing any files:
-
-    ./run.sh --qa-console
-
-In this mode, activity rows are emitted to stdout as CSV and no work log or
-error log files are written.
-
-The Go Linux collector supports X11/Xorg sessions. See
-`docs/linux.md <docs/linux.md>`_ for diagnostics, Wayland limitations, run
-modes, the CSV format, file locations, and privacy guidance.
-
-Tests
------
-
-Run tests with:
-
-    ./test.sh
-
-macOS backend benchmark
------------------------
-
-To compare native vs subprocess backend query overhead on macOS:
-
-    uv run python scripts/benchmark_macos_backends.py --iterations 500
+```bash
+./lint.sh
+```

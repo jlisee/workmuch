@@ -25,7 +25,7 @@ checkout, but it still needs an installer/service layer before it is a
 - [x] Go collector entrypoint exists at `cmd/workmuch-go`.
 - [x] `./run.sh` launches the Go app.
 - [x] Tray mode is the default run mode.
-- [x] Tray menu currently supports `About` and `Quit`.
+- [x] Tray menu supports `About`, `Status`, and `Quit`.
 - [x] `--qa-console` bypasses tray mode and streams CSV rows to stdout.
 - [x] Normal mode writes activity rows under `~/.workmuch`.
 - [x] Non-console logging can write persistent errors to
@@ -39,7 +39,8 @@ checkout, but it still needs an installer/service layer before it is a
 - [ ] No stable installed binary location exists yet.
 - [ ] No LaunchAgent plist is generated yet.
 - [ ] No install/update/uninstall commands exist yet.
-- [ ] No status/doctor command exists yet.
+- [x] `./run.sh doctor` reports backend, permission, log, service, and runtime
+  diagnostics.
 - [ ] No app bundle or stable executable identity exists yet for a smoother
   macOS permissions experience.
 
@@ -131,14 +132,9 @@ without manually editing plists or remembering `launchctl` commands.
   partial data.
 - [x] Transient backend sample failures are logged as warnings instead of
   stopping the collector.
-- [ ] Add `workmuch doctor` or equivalent diagnostics for:
-  - active backend
-  - Accessibility trusted yes/no
-  - frontmost app sample
-  - focused window title sample
-  - idle seconds sample
-  - log directory writability
-  - LaunchAgent loaded/running state
+- [x] `./run.sh doctor` reports the active backend, Accessibility permission,
+  a diagnostic sample, log-directory writability, the LaunchAgent plist state,
+  and runtime status. It does not yet manage a LaunchAgent.
 - [ ] Add user-facing guidance for granting Accessibility permission to the
   installed binary or app bundle.
 - [ ] Verify app/window capture from the installed service in a normal macOS
@@ -157,14 +153,12 @@ session.
 - [x] Keep persistent stderr logs in `~/.workmuch/error.log` for non-console
   runs.
 - [x] Keep activity samples in daily `~/.workmuch/*.worklog` files.
-- [ ] Add a status command for service diagnostics.
-- [ ] Track last successful sample timestamp.
-- [ ] Track last backend warning/error.
-- [ ] Track active backend and selected backend.
-- [ ] Report the current work log path.
+- [x] `doctor` and the tray Status view report runtime diagnostics.
+- [x] Track the last successful sample timestamp and latest backend warning or
+  error.
+- [x] Track selected and active backends and the current worklog path.
 - [ ] Report whether the LaunchAgent is loaded and whether launchd thinks it is
-  healthy.
-- [ ] Add tray status details for backend, permission state, and latest log.
+  healthy; the current report only checks the plist.
 
 ## Power and always-on behavior
 
