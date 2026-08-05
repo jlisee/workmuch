@@ -306,7 +306,7 @@ func TestParseWMClassUsesClassThenFallsBackToInstance(t *testing.T) {
 	assert.Empty(t, parseWMClass(nil))
 }
 
-func TestFindTopLevelWindowMatchesPythonTraversal(t *testing.T) {
+func TestFindTopLevelWindowFollowsParentChain(t *testing.T) {
 	parents := map[uint32]uint32{10: 20, 20: 30, 30: 1}
 	titles := map[uint32]string{20: "Editor"}
 
