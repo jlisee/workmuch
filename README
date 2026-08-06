@@ -76,7 +76,8 @@ Show the build version:
 ```
 
 Ordinary builds report `dev`. Published builds use the version recorded in the
-GitHub Release and Debian package.
+GitHub Release and Debian package. See [Versioning](docs/versioning.md) for how
+the value is calculated, validated, and embedded.
 
 ### Backends
 
