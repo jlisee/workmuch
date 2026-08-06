@@ -57,7 +57,15 @@ func openFileCommand(goos string, target string) (*exec.Cmd, error) {
 	case "darwin":
 		return exec.Command("open", target), nil
 	case "linux":
-		return exec.Command("xdg-open", target), nil
+		page, err := os.ReadFile(target)
+		if err != nil {
+			return nil, fmt.Errorf("read browser page %s: %w", target, err)
+		}
+		pageURL, err := serveBrowserPage(page)
+		if err != nil {
+			return nil, err
+		}
+		return exec.Command("xdg-open", pageURL), nil
 	case "windows":
 		return exec.Command("rundll32", "url.dll,FileProtocolHandler", target), nil
 	default:

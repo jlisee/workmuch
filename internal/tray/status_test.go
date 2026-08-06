@@ -1,6 +1,9 @@
 package tray
 
 import (
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -67,6 +70,29 @@ func TestEnsureStatusHTMLCreatesPrivateUniqueFile(t *testing.T) {
 	assert.Equal(t, os.FileMode(0o600), fileMode(t, firstPath))
 	assert.Equal(t, os.FileMode(0o600), fileMode(t, secondPath))
 	assert.Equal(t, os.TempDir(), filepath.Dir(firstPath))
+}
+
+func TestOpenFileCommandLinuxUsesBrowserURL(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "status page.html")
+	require.NoError(t, os.WriteFile(path, []byte("<h1>Status</h1>"), 0o600))
+
+	cmd, err := openFileCommand("linux", path)
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+	require.Len(t, cmd.Args, 2)
+	assert.Equal(t, "xdg-open", cmd.Args[0])
+	target, err := url.Parse(cmd.Args[1])
+	require.NoError(t, err)
+	assert.Equal(t, "http", target.Scheme)
+	assert.Equal(t, "127.0.0.1", target.Hostname())
+	response, err := http.Get(target.String())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = response.Body.Close() })
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "<h1>Status</h1>", string(body))
 }
 
 func fileMode(t *testing.T, path string) os.FileMode {

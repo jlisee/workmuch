@@ -28,7 +28,7 @@ func aboutCommand(goos string, version string) (*exec.Cmd, error) {
 		script := `display dialog "` + message + `" with title "` + aboutTitle + `" buttons {"OK"} default button "OK"`
 		return exec.Command("osascript", "-e", script), nil
 	case "linux":
-		target, err := ensureAboutHTML(version)
+		target, err := serveBrowserPage([]byte(renderAboutHTML(version)))
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,14 @@ func aboutCommand(goos string, version string) (*exec.Cmd, error) {
 
 func ensureAboutHTML(version string) (string, error) {
 	path := filepath.Join(os.TempDir(), "workmuch-about.html")
-	aboutHTML := `<!doctype html>
+	if err := os.WriteFile(path, []byte(renderAboutHTML(version)), 0o644); err != nil {
+		return "", fmt.Errorf("write about page: %w", err)
+	}
+	return path, nil
+}
+
+func renderAboutHTML(version string) string {
+	return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -91,8 +98,4 @@ func ensureAboutHTML(version string) (string, error) {
   </main>
 </body>
 </html>`
-	if err := os.WriteFile(path, []byte(aboutHTML), 0o644); err != nil {
-		return "", fmt.Errorf("write about page: %w", err)
-	}
-	return path, nil
 }
