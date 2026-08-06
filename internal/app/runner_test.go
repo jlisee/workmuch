@@ -60,12 +60,42 @@ func TestOpenCSVOutputNoTrayUsesPrivateDailyWorklog(t *testing.T) {
 	t.Cleanup(output.close)
 
 	assert.Equal(t, platform.LogDir(homeDir), output.logDir)
-	assert.Equal(t, filepath.Dir(output.workLogPath), output.logDir)
+	assert.Equal(t, filepath.Dir(output.currentWorkLogPath()), output.logDir)
 	assert.NotEqual(t, os.Stdout, output.writer)
 
-	info, err := os.Stat(output.workLogPath)
+	info, err := os.Stat(output.currentWorkLogPath())
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestOpenCSVOutputRotatesDailyWorklogAtMidnight(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	location := time.FixedZone("test-local", -5*60*60)
+	dayOne := time.Date(2026, time.August, 6, 23, 59, 58, 0, location)
+	dayTwo := dayOne.Add(3 * time.Second)
+	opts := DefaultOptions()
+	opts.NoTray = true
+
+	output, err := openCSVOutputAt(opts, dayOne)
+	require.NoError(t, err)
+	t.Cleanup(output.close)
+
+	for _, sampleTime := range []time.Time{dayOne, dayTwo} {
+		written, writeErr := writeActivitySample(output.writer, backend.UsageSample{
+			ProgramName: "Terminal",
+			WindowTitle: sampleTime.Format(time.RFC3339),
+		}, float64(sampleTime.Unix()))
+		require.NoError(t, writeErr)
+		assert.True(t, written)
+		require.NoError(t, output.writer.Flush())
+	}
+
+	dayOnePath := filepath.Join(output.logDir, "2026-08-06.worklog")
+	dayTwoPath := filepath.Join(output.logDir, "2026-08-07.worklog")
+	assert.FileExists(t, dayOnePath)
+	assert.FileExists(t, dayTwoPath)
+	assert.Equal(t, dayTwoPath, output.currentWorkLogPath())
 }
 
 func TestWriteActivitySampleSkipsRowsWithoutAppOrWindow(t *testing.T) {

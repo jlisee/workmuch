@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime"
@@ -79,7 +78,7 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 	}
 	defer output.close()
 
-	statusTracker := newCollectorStatusTracker(opts, usageBackend.Name(), output.workLogPath, output.logDir, logger)
+	statusTracker := newCollectorStatusTracker(opts, usageBackend.Name(), output.currentWorkLogPath(), output.logDir, logger)
 	if statusTracker != nil {
 		statusTracker.Start()
 		defer statusTracker.Stop()
@@ -88,7 +87,7 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 		}
 	}
 
-	csvWriter := logging.NewCSVWriter(output.writer)
+	csvWriter := output.writer
 	period := time.Duration(float64(time.Second) / opts.Rate)
 	nextWakeAt := time.Now().Add(period)
 	resetAt := time.Now().Add(backendResetInterval)
@@ -125,7 +124,7 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 		if err != nil {
 			wrappedErr := fmt.Errorf("write csv record: %w", err)
 			if statusTracker != nil {
-				statusTracker.RecordError(formatLogMessage("error", "write csv record", err, logField{key: "path", value: output.workLogPath}))
+				statusTracker.RecordError(formatLogMessage("error", "write csv record", err, logField{key: "path", value: output.currentWorkLogPath()}))
 			}
 			return wrappedErr
 		}
@@ -133,12 +132,13 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 			if err := csvWriter.Flush(); err != nil {
 				wrappedErr := fmt.Errorf("flush csv record: %w", err)
 				if statusTracker != nil {
-					statusTracker.RecordError(formatLogMessage("error", "flush csv record", err, logField{key: "path", value: output.workLogPath}))
+					statusTracker.RecordError(formatLogMessage("error", "flush csv record", err, logField{key: "path", value: output.currentWorkLogPath()}))
 				}
 				return wrappedErr
 			}
 		}
 		if statusTracker != nil {
+			statusTracker.SetCurrentWorkLogPath(output.currentWorkLogPath())
 			statusTracker.RecordSample(sample, sampleErr == nil && written)
 		}
 
@@ -154,7 +154,12 @@ func runCollector(ctx context.Context, opts Options, logger *log.Logger) error {
 	}
 }
 
-func writeActivitySample(csvWriter *logging.CSVWriter, sample backend.UsageSample, timestampSeconds float64) (bool, error) {
+type sampleCSVWriter interface {
+	WriteSample(sample backend.UsageSample, timestampSeconds float64) error
+	Flush() error
+}
+
+func writeActivitySample(csvWriter sampleCSVWriter, sample backend.UsageSample, timestampSeconds float64) (bool, error) {
 	if !sample.HasActivity() {
 		return false, nil
 	}
@@ -181,15 +186,23 @@ func logBackendSelection(logger *log.Logger, requested string, active string) {
 }
 
 type csvOutput struct {
-	writer      io.Writer
-	close       func()
-	logDir      string
-	workLogPath string
+	writer             sampleCSVWriter
+	close              func()
+	logDir             string
+	currentWorkLogPath func() string
 }
 
 func openCSVOutput(opts Options) (csvOutput, error) {
+	return openCSVOutputAt(opts, time.Now())
+}
+
+func openCSVOutputAt(opts Options, now time.Time) (csvOutput, error) {
 	if opts.QAConsole {
-		return csvOutput{writer: os.Stdout, close: func() {}, workLogPath: "stdout"}, nil
+		return csvOutput{
+			writer:             logging.NewCSVWriter(os.Stdout),
+			close:              func() {},
+			currentWorkLogPath: func() string { return "stdout" },
+		}, nil
 	}
 
 	homeDir, err := platform.UserHomeDir()
@@ -201,20 +214,19 @@ func openCSVOutput(opts Options) (csvOutput, error) {
 		return csvOutput{}, fmt.Errorf("ensure log directory %s: %w", platform.LogDir(homeDir), err)
 	}
 
-	workLogPath := platform.WorkLogPath(time.Now(), logDir)
-	workLogFile, err := platform.OpenPrivateAppendFile(workLogPath)
+	workLogWriter, err := logging.NewDailyCSVWriter(logDir, now)
 	if err != nil {
-		return csvOutput{}, fmt.Errorf("open work log %s: %w", workLogPath, err)
+		return csvOutput{}, err
 	}
 
 	closeFn := func() {
-		_ = workLogFile.Close()
+		_ = workLogWriter.Close()
 	}
 	return csvOutput{
-		writer:      workLogFile,
-		close:       closeFn,
-		logDir:      logDir,
-		workLogPath: workLogPath,
+		writer:             workLogWriter,
+		close:              closeFn,
+		logDir:             logDir,
+		currentWorkLogPath: workLogWriter.CurrentPath,
 	}, nil
 }
 

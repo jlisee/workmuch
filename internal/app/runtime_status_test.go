@@ -104,3 +104,18 @@ func TestRuntimeStatusTrackerPreservesLastSuccessfulSampleAfterFailure(t *testin
 	assert.Equal(t, "Firefox", finalStatus.LastSuccessfulSample.ProgramName)
 	assert.Equal(t, "Documentation", finalStatus.LastSuccessfulSample.WindowTitle)
 }
+
+func TestRuntimeStatusTrackerUsesRotatedWorkLogPath(t *testing.T) {
+	t.Parallel()
+
+	writer := &fakeRuntimeStatusWriter{}
+	tracker := newRuntimeStatusTracker(writer, nil, func() time.Time {
+		return time.Date(2026, time.August, 7, 0, 0, 1, 0, time.UTC)
+	}, "auto", backend.BackendLinux, "/tmp/2026-08-06.worklog")
+
+	tracker.SetCurrentWorkLogPath("/tmp/2026-08-07.worklog")
+	tracker.RecordSample(backend.UsageSample{ProgramName: "Terminal"}, true)
+
+	require.Len(t, writer.writes, 1)
+	assert.Equal(t, "/tmp/2026-08-07.worklog", writer.writes[0].CurrentWorkLogPath)
+}

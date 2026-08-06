@@ -55,6 +55,13 @@ func (t *runtimeStatusTracker) Stop() {
 	t.write()
 }
 
+func (t *runtimeStatusTracker) SetCurrentWorkLogPath(path string) {
+	if t == nil || path == "" {
+		return
+	}
+	t.value.CurrentWorkLogPath = path
+}
+
 func (t *runtimeStatusTracker) RecordSample(sample backend.UsageSample, success bool) {
 	if t == nil {
 		return
