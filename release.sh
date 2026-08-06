@@ -8,6 +8,81 @@ export GIT_TERMINAL_PROMPT=0
 export GOCACHE="${GOCACHE:-$SCRIPT_DIR/.gocache}"
 mkdir -p "$GOCACHE"
 
+usage() {
+	cat >&2 <<EOF
+usage:
+  $0
+  $0 --local <linux/amd64|linux/arm64>
+EOF
+}
+
+run_checks() {
+	echo "[Running tests...]"
+	./test.sh
+
+	echo "[Running lint...]"
+	./lint.sh
+}
+
+build_local_deb() {
+	local platform=$1
+	local architecture
+	local other_architecture
+	local version
+	local artifact
+	local other_artifact
+
+	case "$platform" in
+	linux/amd64)
+		architecture=amd64
+		other_architecture=arm64
+		;;
+	linux/arm64)
+		architecture=arm64
+		other_architecture=amd64
+		;;
+	*)
+		echo "error: unsupported local platform \"$platform\"; use linux/amd64 or linux/arm64" >&2
+		exit 2
+		;;
+	esac
+
+	run_checks
+	version=$(go run ./cmd/workmuch-version --format version)
+	if [[ -n "$(git status --porcelain=v1)" ]]; then
+		version="${version}.dirty"
+	fi
+
+	echo "[Building workmuch $version for $platform...]"
+	WORKMUCH_VERSION="$version" \
+		go run github.com/goreleaser/goreleaser/v2@v2.17.1 \
+		release --snapshot --clean
+
+	artifact="dist/workmuch_${version}_${architecture}.deb"
+	if [[ ! -f "$artifact" ]]; then
+		echo "error: GoReleaser did not create $artifact" >&2
+		exit 1
+	fi
+	other_artifact="dist/workmuch_${version}_${other_architecture}.deb"
+	if [[ -f "$other_artifact" ]]; then
+		rm -- "$other_artifact"
+	fi
+	(
+		cd dist
+		sha256sum "$(basename "$artifact")" >checksums.txt
+	)
+	echo "Built $artifact"
+}
+
+if [[ $# -gt 0 ]]; then
+	if [[ $# -ne 2 || $1 != --local ]]; then
+		usage
+		exit 2
+	fi
+	build_local_deb "$2"
+	exit 0
+fi
+
 if [[ -n "$(git status --porcelain=v1)" ]]; then
 	echo "error: the worktree must be clean before releasing" >&2
 	exit 1
@@ -23,11 +98,7 @@ git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
 git fetch --tags origin
 git remote set-head origin --auto >/dev/null 2>&1 || true
 
-echo "[Running tests...]"
-./test_go.sh
-
-echo "[Running lint...]"
-./lint.sh
+run_checks
 
 VERSION=$(go run ./cmd/workmuch-version --format version)
 TAG=$(go run ./cmd/workmuch-version --format tag)

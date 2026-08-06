@@ -113,6 +113,19 @@ directly through GitHub Releases; WorkMuch does not provide an APT repository.
 
 ## Releases
 
+Build one versioned Debian package locally for testing with:
+
+```bash
+./release.sh --local linux/amd64
+```
+
+Use `linux/arm64` for an arm64 package. Local builds use the version calculated
+from the current commit and append `.dirty` when the worktree has tracked or
+untracked changes. They include those source changes and write the selected
+package to `dist/` without fetching, tagging, pushing, or creating a GitHub
+Release. The pinned GoReleaser version is downloaded through the Go toolchain
+when it is not already cached.
+
 Maintainers create a release from a clean checkout with:
 
 ```bash
