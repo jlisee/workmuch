@@ -1,5 +1,7 @@
 # Battery-Friendly Collector Design
 
+NOTE:  Long term plans that we'll use as needed.
+
 This document captures the energy and battery-life design for the Go collector,
 especially on macOS laptops. It focuses on three areas:
 

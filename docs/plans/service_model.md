@@ -163,12 +163,11 @@ session.
 ## Power and always-on behavior
 
 - [x] Native macOS backend exists and should be the default long-running path.
-- [ ] Implement idle-aware adaptive sampling.
-- [ ] Batch CSV flushes in normal mode.
+- [ ] Implement idle-aware adaptive sampling with a one-minute maximum sleep.
+- [ ] Batch CSV and runtime-status writes in normal mode.
 - [ ] Keep immediate flush behavior in `--qa-console`.
-- [ ] Add backend capability hints so expensive backends can warn or use more
-  conservative sampling.
-- [ ] Add a placeholder power provider, then later macOS power-state support.
+- [ ] Avoid backend capability and power-provider abstractions until measured
+  behavior shows that the portable idle policy is insufficient.
 
 These items are not required to prove the LaunchAgent model, but they matter
 before recommending WorkMuch as an always-on laptop tool.
