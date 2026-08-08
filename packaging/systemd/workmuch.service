@@ -9,7 +9,7 @@ StartLimitBurst=5
 [Service]
 Type=simple
 ExecCondition=/bin/sh -c 'test -n "$DISPLAY"'
-ExecStart=/usr/bin/workmuch --no-tray --backend linux
+ExecStart=/usr/bin/workmuch --backend linux
 Restart=on-failure
 RestartSec=3s
 

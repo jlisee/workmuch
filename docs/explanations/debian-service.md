@@ -9,6 +9,11 @@ The package starts or restarts the service for active user managers. If no
 desktop user is logged in during installation, this succeeds without starting
 anything. WorkMuch starts at the next graphical login instead.
 
+The service uses WorkMuch's default tray mode. It starts collection and
+registers a tray icon through the desktop session's StatusNotifier/AppIndicator
+service. Desktops without a compatible system tray provider can still run the
+collector, but cannot display its icon or menu.
+
 ## Inspect and control the service
 
 Run these commands as the desktop user whose collector you want to inspect:

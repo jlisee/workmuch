@@ -24,7 +24,7 @@ func readPackageFile(t *testing.T, relativePath string) string {
 	return string(content)
 }
 
-func TestUserServiceRunsLinuxCollectorInGraphicalSession(t *testing.T) {
+func TestUserServiceRunsLinuxTrayCollectorInGraphicalSession(t *testing.T) {
 	t.Parallel()
 
 	unit := readPackageFile(t, "systemd/workmuch.service")
@@ -33,7 +33,8 @@ func TestUserServiceRunsLinuxCollectorInGraphicalSession(t *testing.T) {
 	assert.Contains(t, unit, "PartOf=graphical-session.target")
 	assert.Contains(t, unit, "After=graphical-session.target")
 	assert.Contains(t, unit, `ExecCondition=/bin/sh -c 'test -n "$DISPLAY"'`)
-	assert.Contains(t, unit, "ExecStart=/usr/bin/workmuch --no-tray --backend linux")
+	assert.Contains(t, unit, "ExecStart=/usr/bin/workmuch --backend linux")
+	assert.NotContains(t, unit, "--no-tray")
 	assert.Contains(t, unit, "Restart=on-failure")
 	assert.Contains(t, unit, "RestartSec=3s")
 	assert.Contains(t, unit, "StartLimitIntervalSec=30s")
@@ -80,6 +81,7 @@ func TestGoReleaserBuildsOnlyLinuxDebPackages(t *testing.T) {
 	assert.Contains(t, config, "formats:\n      - deb")
 	assert.Contains(t, config, "changelog: packaging/debian/changelog.yaml")
 	assert.Contains(t, config, "dst: /usr/lib/systemd/user/workmuch.service")
+	assert.Contains(t, config, "src: docs/explanations/debian-service.md")
 	assert.Contains(t, config, "formats:\n      - none")
 	assert.NotContains(t, config, "darwin")
 	assert.NotContains(t, config, "dmg")
@@ -92,11 +94,12 @@ func TestGoReleaserBuildsOnlyLinuxDebPackages(t *testing.T) {
 func TestServiceDocumentationExplainsOperationsAndDisplaySupport(t *testing.T) {
 	t.Parallel()
 
-	documentation := readPackageFile(t, "../docs/debian-service.md")
+	documentation := readPackageFile(t, "../docs/explanations/debian-service.md")
 
 	assert.Contains(t, documentation, "systemctl --user status workmuch.service")
 	assert.Contains(t, documentation, "journalctl --user -u workmuch.service")
 	assert.Contains(t, documentation, "systemctl --user mask workmuch.service")
+	assert.Contains(t, documentation, "system tray")
 	assert.Contains(t, documentation, "X11")
 	assert.Contains(t, documentation, "XWayland")
 	assert.Contains(t, documentation, "pure Wayland")

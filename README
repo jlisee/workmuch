@@ -76,8 +76,9 @@ Show the build version:
 ```
 
 Ordinary builds report `dev`. Published builds use the version recorded in the
-GitHub Release and Debian package. See [Versioning](docs/versioning.md) for how
-the value is calculated, validated, and embedded.
+GitHub Release and Debian package. See
+[Versioning](docs/explanations/versioning.md) for how the value is calculated,
+validated, and embedded.
 
 ### Backends
 
@@ -92,8 +93,8 @@ the value is calculated, validated, and embedded.
 does not require or invoke a separate collector. `macos-native` requires macOS
 with CGO enabled, and `linux` requires Linux with an accessible X11 display.
 
-See [Linux usage](docs/linux.md) for X11 diagnostics, Wayland limitations, the
-CSV format, file locations, and privacy guidance.
+See [Linux usage](docs/explanations/linux.md) for X11 diagnostics, Wayland
+limitations, the CSV format, file locations, and privacy guidance.
 
 ## Debian packages
 
@@ -107,9 +108,10 @@ sudo apt install ./workmuch_<version>_amd64.deb
 
 The package globally enables a systemd user service. Each logged-in graphical
 user runs their own unprivileged collector and writes only to their own
-`~/.workmuch`. See [Debian user service](docs/debian-service.md) for status,
-journal, opt-out, and display-support commands. Packages are distributed
-directly through GitHub Releases; WorkMuch does not provide an APT repository.
+`~/.workmuch`. See
+[Debian user service](docs/explanations/debian-service.md) for status, journal,
+opt-out, and display-support commands. Packages are distributed directly
+through GitHub Releases; WorkMuch does not provide an APT repository.
 
 ## Releases
 
