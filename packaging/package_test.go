@@ -212,6 +212,42 @@ func TestReleaseScriptRejectsUnsupportedLocalPlatform(t *testing.T) {
 	assert.Contains(t, string(output), "linux/amd64, linux/arm64, or darwin/universal")
 }
 
+func TestReleaseScriptPassesInstallFlagToMacOSRelease(t *testing.T) {
+	t.Parallel()
+
+	repositoryDir, err := filepath.Abs("..")
+	require.NoError(t, err)
+	testDir := t.TempDir()
+	commandLog := filepath.Join(testDir, "commands.log")
+
+	releaseScript, err := os.ReadFile(filepath.Join(repositoryDir, "release.sh"))
+	require.NoError(t, err)
+	writeExecutable(t, filepath.Join(testDir, "release.sh"), string(releaseScript))
+	require.NoError(t, os.MkdirAll(filepath.Join(testDir, "packaging", "macos"), 0o755))
+	writeExecutable(t, filepath.Join(testDir, "packaging", "macos", "release.sh"), `#!/usr/bin/env bash
+printf 'macos-release:%s\n' "$*" >>"$COMMAND_LOG"
+`)
+
+	command := exec.Command("bash", filepath.Join(testDir, "release.sh"), "--local", "darwin/universal", "--install")
+	command.Env = append(os.Environ(), "COMMAND_LOG="+commandLog)
+	output, err := command.CombinedOutput()
+
+	require.NoError(t, err, string(output))
+	assert.Equal(t, "macos-release:--install\n", readTestFile(t, commandLog))
+}
+
+func TestReleaseScriptRejectsInstallFlagForLinuxLocalRelease(t *testing.T) {
+	t.Parallel()
+
+	repositoryDir, err := filepath.Abs("..")
+	require.NoError(t, err)
+	command := exec.Command("bash", filepath.Join(repositoryDir, "release.sh"), "--local", "linux/amd64", "--install")
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err)
+	assert.Contains(t, string(output), "usage:")
+}
+
 func TestMacOSBundleTemplateHasRequiredLayoutAndPlistKeys(t *testing.T) {
 	t.Parallel()
 
@@ -259,7 +295,14 @@ func TestMacOSReleaseScriptBuildsSignsAndVerifiesUniversalDMG(t *testing.T) {
 	assert.Contains(t, script, "hdiutil attach -readonly")
 	assert.Contains(t, script, "WorkMuch_${version}_universal.dmg")
 	assert.Contains(t, script, "checksums.txt")
+	assert.Contains(t, script, "INSTALL_BUNDLE")
+	assert.Contains(t, script, "pgrep -f")
+	assert.Contains(t, script, "kill -TERM")
+	assert.Contains(t, script, "kill -KILL")
+	assert.Contains(t, script, "ditto")
+	assert.Contains(t, script, "open -a")
 	assert.NotContains(t, script, "spctl")
+	assert.NotContains(t, script, "launchctl")
 }
 
 func TestMacOSReleaseRejectsWrongHostBeforeRunningChecks(t *testing.T) {
@@ -370,6 +413,52 @@ func TestMacOSReleaseWritesVersionedDMGAndChecksum(t *testing.T) {
 	assert.Contains(t, commands, "lipo:-create")
 	assert.Contains(t, commands, "hdiutil:verify")
 	assert.Contains(t, commands, "hdiutil:attach -readonly")
+	assert.NotContains(t, commands, "pgrep:")
+	assert.NotContains(t, commands, "ditto:")
+	assert.NotContains(t, commands, "open:")
+}
+
+func TestMacOSReleaseInstallStopsReplacesVerifiesAndReopensApp(t *testing.T) {
+	scriptPath, binDir, commandLog := setupFakeMacRelease(t)
+	hdiutilState := filepath.Join(t.TempDir(), "hdiutil-state")
+	installApp := filepath.Join(t.TempDir(), "Applications", "WorkMuch.app")
+	installExecutable := filepath.Join(installApp, "Contents", "MacOS", "workmuch")
+	command := exec.Command("bash", scriptPath, "--install")
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"COMMAND_LOG="+commandLog,
+		"FAKE_HDIUTIL_STATE="+hdiutilState,
+		"FAKE_WORKMUCH_PROCESS_STATE="+filepath.Join(t.TempDir(), "workmuch-process-state"),
+		"WORKMUCH_CODESIGN_IDENTITY=Test Identity",
+		"WORKMUCH_INSTALL_APP_PATH="+installApp,
+		"WORKMUCH_INSTALL_TERM_WAIT_ATTEMPTS=1",
+		"WORKMUCH_INSTALL_KILL_WAIT_ATTEMPTS=1",
+		"WORKMUCH_INSTALL_POLL_INTERVAL_SECONDS=0",
+		"FAKE_WORKMUCH_PIDS=123 456",
+		"FAKE_WORKMUCH_STUBBORN_PIDS=456",
+	)
+
+	output, err := command.CombinedOutput()
+
+	require.NoError(t, err, string(output))
+	commands := readTestFile(t, commandLog)
+	assert.Contains(t, commands, "pgrep:-f "+installExecutable)
+	assert.Contains(t, commands, "kill:-TERM 123 456")
+	assert.Contains(t, commands, "kill:-KILL 456")
+	assert.Contains(t, commands, "ditto:")
+	assert.Contains(t, commands, " "+installApp)
+	assert.Contains(t, commands, "codesign:--verify --deep --strict --verbose=2 "+installApp)
+	assert.Contains(t, commands, "open:-a "+installApp)
+	assert.Contains(t, string(output), "Installed and opened "+installApp)
+}
+
+func TestMacOSReleaseRejectsUnsupportedInstallArguments(t *testing.T) {
+	scriptPath, _, _ := setupFakeMacRelease(t)
+	command := exec.Command("bash", scriptPath, "--install", "--again")
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err)
+	assert.Contains(t, string(output), "usage:")
 }
 
 func setupFakeMacRelease(t *testing.T) (string, string, string) {
@@ -522,6 +611,56 @@ attach)
 verify|detach) ;;
 *) exit 94 ;;
 esac
+`)
+	writeExecutable(t, filepath.Join(binDir, "pgrep"), `#!/usr/bin/env bash
+printf 'pgrep:%s\n' "$*" >>"$COMMAND_LOG"
+state='running'
+if [[ -n "${FAKE_WORKMUCH_PROCESS_STATE:-}" && -f "$FAKE_WORKMUCH_PROCESS_STATE" ]]; then
+	state=$(<"$FAKE_WORKMUCH_PROCESS_STATE")
+fi
+case "$state" in
+running) printf '%s\n' ${FAKE_WORKMUCH_PIDS:-} ;;
+term) printf '%s\n' ${FAKE_WORKMUCH_STUBBORN_PIDS:-} ;;
+killed) ;;
+*) exit 95 ;;
+esac
+`)
+	writeExecutable(t, filepath.Join(binDir, "ps"), `#!/usr/bin/env bash
+printf 'ps:%s\n' "$*" >>"$COMMAND_LOG"
+pid=''
+previous=''
+for argument in "$@"; do
+	if [[ "$previous" == '-p' ]]; then
+		pid=$argument
+		break
+	fi
+	previous=$argument
+done
+for workmuch_pid in ${FAKE_WORKMUCH_PIDS:-} ${FAKE_WORKMUCH_STUBBORN_PIDS:-}; do
+	if [[ "$pid" == "$workmuch_pid" ]]; then
+		printf '%s\n' "$WORKMUCH_INSTALL_APP_PATH/Contents/MacOS/workmuch"
+		exit 0
+	fi
+done
+exit 1
+`)
+	writeExecutable(t, filepath.Join(binDir, "kill"), `#!/usr/bin/env bash
+printf 'kill:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ -n "${FAKE_WORKMUCH_PROCESS_STATE:-}" ]]; then
+	case "$1" in
+	-TERM) printf 'term\n' >"$FAKE_WORKMUCH_PROCESS_STATE" ;;
+	-KILL) printf 'killed\n' >"$FAKE_WORKMUCH_PROCESS_STATE" ;;
+	esac
+fi
+`)
+	writeExecutable(t, filepath.Join(binDir, "ditto"), `#!/usr/bin/env bash
+printf 'ditto:%s\n' "$*" >>"$COMMAND_LOG"
+rm -rf -- "$2"
+mkdir -p -- "$(dirname -- "$2")"
+cp -R "$1" "$2"
+`)
+	writeExecutable(t, filepath.Join(binDir, "open"), `#!/usr/bin/env bash
+printf 'open:%s\n' "$*" >>"$COMMAND_LOG"
 `)
 	writeExecutable(t, filepath.Join(binDir, "shasum"), `#!/usr/bin/env bash
 printf 'shasum:%s\n' "$*" >>"$COMMAND_LOG"

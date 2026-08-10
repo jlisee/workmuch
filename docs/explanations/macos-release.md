@@ -12,24 +12,31 @@ checksum before opening it.
 
 ## Create and protect the signing identity
 
-Create the identity once in Keychain Access:
+Create and trust the identity once in Keychain Access:
 
 1. Open **Keychain Access > Certificate Assistant > Create a Certificate**.
 2. Give it a stable name such as `WorkMuch Local Code Signing`.
 3. Choose **Self Signed Root** for the identity type and **Code Signing** for
    the certificate type. Select the option to override defaults if a longer
    validity period is needed.
-4. Store the identity in the login keychain and confirm that macOS lists it:
+4. Store the identity in the login keychain.
+5. In **login > My Certificates**, expand the new certificate and confirm that
+   it has a private key.
+6. Open the certificate, expand **Trust**, and set **Code Signing** to
+   **Always Trust**. If `security find-identity` still reports
+   `CSSMERR_TP_NOT_TRUSTED`, set **When using this certificate** to
+   **Always Trust** too.
+7. Confirm that macOS lists it as a valid code-signing identity:
 
    ```bash
    security find-identity -v -p codesigning
    ```
 
-Set the certificate trust needed by the local Mac through Keychain Access if
-`codesign` reports that the identity is not trusted. Export the certificate and
-its private key together as an encrypted `.p12` file. Keep that file and its
-password in separate, backed-up, access-controlled locations. Losing the
-private key means future releases cannot retain the same signing identity.
+The output must include the identity under **Valid identities only**. Export the
+certificate and its private key together as an encrypted `.p12` file. Keep that
+file and its password in separate, backed-up, access-controlled locations.
+Losing the private key means future releases cannot retain the same signing
+identity.
 
 Do not commit the certificate, private key, exported `.p12`, or its password.
 
@@ -60,6 +67,21 @@ binary and to the DMG name. The script verifies both `arm64` and `x86_64`, the
 deployment target, plist metadata, signature, designated requirement, DMG, and
 checksum. It intentionally does not run `spctl`, because this identity is not a
 notarized Developer ID identity.
+
+To install the local build for testing without mounting the DMG, pass
+`--install`:
+
+```bash
+export WORKMUCH_CODESIGN_IDENTITY="WorkMuch Local Code Signing"
+./release.sh --local darwin/universal --install
+```
+
+The install mode still creates and verifies the DMG. After that it stops the
+installed app at `/Applications/WorkMuch.app`, waits for it to exit, force-kills
+it if needed, replaces the app from the freshly signed build, verifies the
+installed bundle, and opens it again. It does not use `launchctl`; WorkMuch is a
+main-app Login Item through `SMAppService.mainAppService`, not a launchd plist
+service.
 
 ## Install and open WorkMuch
 

@@ -12,7 +12,8 @@ usage() {
 	cat >&2 <<EOF
 usage:
   $0
-  $0 --local <linux/amd64|linux/arm64|darwin/universal>
+  $0 --local <linux/amd64|linux/arm64>
+  $0 --local darwin/universal [--install]
 EOF
 }
 
@@ -75,13 +76,25 @@ build_local_deb() {
 }
 
 if [[ $# -gt 0 ]]; then
-	if [[ $# -ne 2 || $1 != --local ]]; then
+	if [[ $# -lt 2 || $1 != --local ]]; then
 		usage
 		exit 2
 	fi
 	if [[ $2 == darwin/universal ]]; then
-		packaging/macos/release.sh
+		if [[ $# -gt 3 || (${3:-} != "" && ${3:-} != --install) ]]; then
+			usage
+			exit 2
+		fi
+		if [[ $# -eq 3 ]]; then
+			packaging/macos/release.sh --install
+		else
+			packaging/macos/release.sh
+		fi
 		exit 0
+	fi
+	if [[ $# -ne 2 ]]; then
+		usage
+		exit 2
 	fi
 	build_local_deb "$2"
 	exit 0

@@ -6,6 +6,12 @@ REPOSITORY_DIR=$(cd -- "$SCRIPT_DIR/../.." &>/dev/null && pwd)
 DIST_DIR="$REPOSITORY_DIR/dist/macos"
 TEMPLATE_APP="$SCRIPT_DIR/WorkMuch.app"
 IDENTITY=${WORKMUCH_CODESIGN_IDENTITY:-}
+INSTALLED_APP=${WORKMUCH_INSTALL_APP_PATH:-/Applications/WorkMuch.app}
+INSTALLED_EXECUTABLE="$INSTALLED_APP/Contents/MacOS/workmuch"
+INSTALL_BUNDLE=0
+INSTALL_TERM_WAIT_ATTEMPTS=${WORKMUCH_INSTALL_TERM_WAIT_ATTEMPTS:-50}
+INSTALL_KILL_WAIT_ATTEMPTS=${WORKMUCH_INSTALL_KILL_WAIT_ATTEMPTS:-20}
+INSTALL_POLL_INTERVAL_SECONDS=${WORKMUCH_INSTALL_POLL_INTERVAL_SECONDS:-0.1}
 MOUNTED_DMG=""
 TEMP_DIR=""
 
@@ -28,6 +34,22 @@ require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
 }
 
+usage() {
+	echo "usage: $0 [--install]" >&2
+}
+
+parse_args() {
+	if [[ $# -eq 0 ]]; then
+		return
+	fi
+	if [[ $# -eq 1 && $1 == --install ]]; then
+		INSTALL_BUNDLE=1
+		return
+	fi
+	usage
+	exit 2
+}
+
 preflight() {
 	[[ $(uname -s) == Darwin ]] || fail "darwin/universal releases must be built on macOS"
 	[[ -n "$IDENTITY" ]] || fail "WORKMUCH_CODESIGN_IDENTITY must name a persistent Code Signing identity"
@@ -36,6 +58,11 @@ preflight() {
 	for command_name in go clang lipo codesign hdiutil plutil otool shasum xcode-select; do
 		require_command "$command_name"
 	done
+	if [[ "$INSTALL_BUNDLE" == 1 ]]; then
+		for command_name in pgrep ps ditto open; do
+			require_command "$command_name"
+		done
+	fi
 	xcode-select -p >/dev/null 2>&1 || fail "Xcode Command Line Tools are required"
 	[[ $(go env CGO_ENABLED) == 1 ]] || fail "CGO must be enabled"
 	clang --version >/dev/null 2>&1 || fail "the Xcode clang toolchain is unavailable"
@@ -112,6 +139,77 @@ verify_bundle() {
 		fail "signed executable does not declare a macOS 13.0 deployment target"
 }
 
+current_workmuch_pids() {
+	local candidates
+	local command_line
+	local pid
+
+	candidates=$(pgrep -f "$INSTALLED_EXECUTABLE" 2>/dev/null || true)
+	for pid in $candidates; do
+		command_line=$(ps -p "$pid" -o command= 2>/dev/null || true)
+		if [[ "$command_line" == "$INSTALLED_EXECUTABLE" ||
+			"$command_line" == "$INSTALLED_EXECUTABLE "* ]]; then
+			printf '%s\n' "$pid"
+		fi
+	done
+}
+
+wait_for_workmuch_exit() {
+	local attempts=$1
+	local attempt
+
+	for ((attempt = 0; attempt < attempts; attempt++)); do
+		if [[ -z $(current_workmuch_pids) ]]; then
+			return 0
+		fi
+		sleep "$INSTALL_POLL_INTERVAL_SECONDS"
+	done
+	[[ -z $(current_workmuch_pids) ]]
+}
+
+stop_installed_app() {
+	local pids
+
+	pids=$(current_workmuch_pids)
+	if [[ -z "$pids" ]]; then
+		return
+	fi
+
+	echo "[Stopping installed WorkMuch.app...]"
+	env kill -TERM $pids 2>/dev/null || true
+	if wait_for_workmuch_exit "$INSTALL_TERM_WAIT_ATTEMPTS"; then
+		return
+	fi
+
+	pids=$(current_workmuch_pids)
+	if [[ -z "$pids" ]]; then
+		return
+	fi
+
+	echo "[Force stopping installed WorkMuch.app...]"
+	env kill -KILL $pids 2>/dev/null || true
+	if ! wait_for_workmuch_exit "$INSTALL_KILL_WAIT_ATTEMPTS"; then
+		fail "installed WorkMuch.app did not stop"
+	fi
+}
+
+install_built_app() {
+	local app_path=$1
+	local short_version=$2
+	local bundle_version=$3
+
+	stop_installed_app
+	echo "[Installing $INSTALLED_APP...]"
+	mkdir -p "$(dirname -- "$INSTALLED_APP")"
+	rm -rf -- "$INSTALLED_APP"
+	ditto "$app_path" "$INSTALLED_APP"
+	verify_bundle "$INSTALLED_APP" "$short_version" "$bundle_version"
+
+	echo "[Opening $INSTALLED_APP...]"
+	open -a "$INSTALLED_APP"
+	echo "Installed and opened $INSTALLED_APP"
+}
+
 build_release() {
 	local version
 	local short_version
@@ -173,11 +271,10 @@ build_release() {
 		shasum -a 256 --check checksums.txt
 	)
 	echo "Built $artifact"
+	if [[ "$INSTALL_BUNDLE" == 1 ]]; then
+		install_built_app "$app_path" "$short_version" "$bundle_version"
+	fi
 }
 
-if [[ $# -ne 0 ]]; then
-	echo "usage: $0" >&2
-	exit 2
-fi
-
+parse_args "$@"
 build_release
