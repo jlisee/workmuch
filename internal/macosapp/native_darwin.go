@@ -3,6 +3,7 @@
 package macosapp
 
 /*
+#cgo CFLAGS: -x objective-c
 #cgo LDFLAGS: -framework AppKit -framework Foundation -framework ServiceManagement
 #include "native_darwin.h"
 */
