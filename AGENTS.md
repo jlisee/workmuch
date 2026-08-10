@@ -21,4 +21,5 @@ The format:
 <1-3 sentences on the why>
 ```
 
-WRAP - linux kernel standards.
+WRAP the lines at 72 characters for the body and keep the first line
+at under 50 if possible.
