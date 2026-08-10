@@ -96,8 +96,8 @@ func TestCollectorBuildsDoctorReport(t *testing.T) {
 				CurrentWorkLog: "/Users/test/.workmuch/2026-07-08.worklog",
 			}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{State: LaunchAgentMissing}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{State: LoginItemNotRegistered}
 		}),
 		RuntimeStatusStore: statusStore,
 		Now:                func() time.Time { return now },
@@ -116,7 +116,7 @@ func TestCollectorBuildsDoctorReport(t *testing.T) {
 	assert.Equal(t, 2.5, report.Sample.IdleSeconds)
 	assert.Equal(t, "/Users/test/.workmuch", report.Logs.Directory)
 	assert.True(t, report.Logs.Writable)
-	assert.Equal(t, LaunchAgentMissing, report.LaunchAgent.State)
+	assert.Equal(t, LoginItemNotRegistered, report.LoginItem.State)
 	require.True(t, report.Runtime.Present)
 	assert.Equal(t, int64(12), report.Runtime.Status.SampleCount)
 	assert.True(t, statusStore.called)
@@ -147,8 +147,8 @@ func TestCollectorKeepsPartialReportWhenBackendFails(t *testing.T) {
 		LogDirReporter: func(time.Time) LogDirectoryReport {
 			return LogDirectoryReport{Directory: "/tmp/workmuch", Writable: true}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{State: LoginItemNotApplicable}
 		}),
 		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
 	}
@@ -195,8 +195,8 @@ func TestCollectorReportsX11SamplingFailure(t *testing.T) {
 		LogDirReporter: func(time.Time) LogDirectoryReport {
 			return LogDirectoryReport{}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{State: LoginItemNotApplicable}
 		}),
 		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
 	}
@@ -236,8 +236,8 @@ func TestCollectorReportsEmptyX11ActivityAsSamplingFailure(t *testing.T) {
 		LogDirReporter: func(time.Time) LogDirectoryReport {
 			return LogDirectoryReport{}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{State: LoginItemNotApplicable}
 		}),
 		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
 	}
@@ -276,8 +276,8 @@ func TestCollectorUsesRunningCollectorSampleForStatus(t *testing.T) {
 		LogDirReporter: func(time.Time) LogDirectoryReport {
 			return LogDirectoryReport{}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{State: LaunchAgentNotApplicable}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{State: LoginItemNotApplicable}
 		}),
 		RuntimeStatusStore: &fakeRuntimeStatusStore{
 			value: status.RuntimeStatus{
@@ -328,8 +328,8 @@ func TestCollectorRecordsSampleWarnings(t *testing.T) {
 		LogDirReporter: func(time.Time) LogDirectoryReport {
 			return LogDirectoryReport{}
 		},
-		LaunchAgentChecker: LaunchAgentCheckerFunc(func(context.Context) LaunchAgentReport {
-			return LaunchAgentReport{}
+		LoginItemChecker: LoginItemCheckerFunc(func(context.Context) LoginItemReport {
+			return LoginItemReport{}
 		}),
 		RuntimeStatusStore: &fakeRuntimeStatusStore{err: status.ErrNotFound},
 	}

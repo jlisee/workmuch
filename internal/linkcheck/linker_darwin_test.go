@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNativeBackendAndTrayLinkWithoutDuplicateLibraryWarning(t *testing.T) {
+func TestCompleteAppLinksWithoutDuplicateLibraryWarning(t *testing.T) {
 	outputPath := filepath.Join(t.TempDir(), "workmuch-linkcheck")
-	cmd := exec.Command("go", "build", "-o", outputPath, "./testdata/dualobjc")
+	cmd := exec.Command("go", "build", "-o", outputPath, "../../cmd/workmuch-go")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 	assert.NotContains(t, string(output), "ignoring duplicate libraries")

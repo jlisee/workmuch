@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -29,7 +28,7 @@ func NewCollector(selectedBackend string) Collector {
 		NewBackend:         backend.NewBackend,
 		PermissionChecker:  NativePermissionChecker{},
 		LogDirReporter:     DefaultLogDirReport,
-		LaunchAgentChecker: NativeLaunchAgentChecker{Platform: runtime.GOOS},
+		LoginItemChecker:   NativeLoginItemChecker{Platform: runtime.GOOS},
 		RuntimeStatusStore: store,
 		Now:                time.Now,
 	}
@@ -73,8 +72,8 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	if c.LogDirReporter != nil {
 		report.Logs = c.LogDirReporter(now)
 	}
-	if c.LaunchAgentChecker != nil {
-		report.LaunchAgent = c.LaunchAgentChecker.Check(ctx)
+	if c.LoginItemChecker != nil {
+		report.LoginItem = c.LoginItemChecker.Check(ctx)
 	}
 	if c.RuntimeStatusStore != nil {
 		report.Runtime.Path = c.RuntimeStatusStore.Path()
@@ -245,8 +244,4 @@ func permissionPlatform(platformName string) string {
 		return runtime.GOOS
 	}
 	return platformName
-}
-
-func launchAgentPlistPath(homeDir string) string {
-	return filepath.Join(homeDir, "Library", "LaunchAgents", "com.jlisee.workmuch.plist")
 }

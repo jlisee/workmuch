@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"workmuch-go/internal/backend"
+	"workmuch-go/internal/macosapp"
 	"workmuch-go/internal/status"
 )
 
@@ -17,15 +18,15 @@ const (
 	PermissionUnknown       PermissionState = "unknown"
 )
 
-type LaunchAgentState string
+type LoginItemState = macosapp.LoginItemState
 
 const (
-	LaunchAgentRunning       LaunchAgentState = "running"
-	LaunchAgentLoaded        LaunchAgentState = "loaded"
-	LaunchAgentNotLoaded     LaunchAgentState = "not_loaded"
-	LaunchAgentMissing       LaunchAgentState = "missing"
-	LaunchAgentError         LaunchAgentState = "error"
-	LaunchAgentNotApplicable LaunchAgentState = "not_applicable"
+	LoginItemNotRegistered    = macosapp.LoginItemNotRegistered
+	LoginItemEnabled          = macosapp.LoginItemEnabled
+	LoginItemRequiresApproval = macosapp.LoginItemRequiresApproval
+	LoginItemNotFound         = macosapp.LoginItemNotFound
+	LoginItemUnsupported      = macosapp.LoginItemUnsupported
+	LoginItemNotApplicable    = macosapp.LoginItemNotApplicable
 )
 
 type PermissionReport struct {
@@ -58,8 +59,8 @@ type LogDirectoryReport struct {
 	Error          string
 }
 
-type LaunchAgentReport struct {
-	State  LaunchAgentState
+type LoginItemReport struct {
+	State  LoginItemState
 	Detail string
 	Error  string
 }
@@ -122,7 +123,7 @@ type DoctorReport struct {
 	Permission      PermissionReport
 	Sample          SampleReport
 	Logs            LogDirectoryReport
-	LaunchAgent     LaunchAgentReport
+	LoginItem       LoginItemReport
 	Runtime         RuntimeStatusReport
 }
 
@@ -138,13 +139,13 @@ func (f PermissionCheckerFunc) Check(ctx context.Context, platform string) Permi
 	return f(ctx, platform)
 }
 
-type LaunchAgentChecker interface {
-	Check(ctx context.Context) LaunchAgentReport
+type LoginItemChecker interface {
+	Check(ctx context.Context) LoginItemReport
 }
 
-type LaunchAgentCheckerFunc func(ctx context.Context) LaunchAgentReport
+type LoginItemCheckerFunc func(ctx context.Context) LoginItemReport
 
-func (f LaunchAgentCheckerFunc) Check(ctx context.Context) LaunchAgentReport {
+func (f LoginItemCheckerFunc) Check(ctx context.Context) LoginItemReport {
 	return f(ctx)
 }
 
@@ -165,7 +166,7 @@ type Collector struct {
 	NewBackend        BackendFactory
 	PermissionChecker PermissionChecker
 	LogDirReporter    LogDirReporter
-	LaunchAgentChecker
+	LoginItemChecker
 	RuntimeStatusStore RuntimeStatusStore
 	Now                func() time.Time
 }

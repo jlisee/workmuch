@@ -29,7 +29,7 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 			Writable:       true,
 			CurrentWorkLog: "/Users/test/.workmuch/2026-07-08.worklog",
 		},
-		LaunchAgent: LaunchAgentReport{State: LaunchAgentMissing},
+		LoginItem: LoginItemReport{State: LoginItemNotRegistered},
 		Runtime: RuntimeStatusReport{
 			Path:    "/Users/test/.workmuch/status.json",
 			Present: true,
@@ -55,7 +55,7 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 	assert.Contains(t, output, "Idle seconds: 1.25")
 	assert.Contains(t, output, "Log directory: /Users/test/.workmuch (writable)")
 	assert.Contains(t, output, "Current work log: /Users/test/.workmuch/2026-07-08.worklog")
-	assert.Contains(t, output, "LaunchAgent: missing")
+	assert.Contains(t, output, "Login Item: not_registered")
 	assert.Contains(t, output, "Runtime status: running")
 	assert.Contains(t, output, "Runtime selected backend: auto")
 	assert.Contains(t, output, "Runtime active backend: macos-native")
@@ -161,4 +161,22 @@ func TestRenderHTMLShowsRuntimeBackendSelection(t *testing.T) {
 	assert.Contains(t, output, "Runtime selected backend")
 	assert.Contains(t, output, "macos-subprocess")
 	assert.Contains(t, output, "Runtime active backend")
+}
+
+func TestRenderTextShowsEveryLoginItemState(t *testing.T) {
+	t.Parallel()
+
+	states := []LoginItemState{
+		LoginItemNotRegistered,
+		LoginItemEnabled,
+		LoginItemRequiresApproval,
+		LoginItemNotFound,
+		LoginItemUnsupported,
+	}
+	for _, state := range states {
+		output := RenderText(DoctorReport{LoginItem: LoginItemReport{State: state}})
+
+		assert.Contains(t, output, "Login Item: "+string(state))
+		assert.NotContains(t, output, "LaunchAgent")
+	}
 }

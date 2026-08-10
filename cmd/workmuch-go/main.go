@@ -8,11 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"workmuch-go/internal/app"
+	"workmuch-go/internal/backend"
 	"workmuch-go/internal/buildinfo"
 	"workmuch-go/internal/doctor"
+	"workmuch-go/internal/macosapp"
 	"workmuch-go/internal/platform"
 	"workmuch-go/internal/tray"
 )
@@ -120,10 +123,42 @@ func executeRunMode(ctx context.Context, opts app.Options, logger *log.Logger) e
 	case runModeForeground:
 		return app.Run(ctx, opts, logger)
 	case runModeTray:
+		proceed, err := prepareNormalTrayLaunch(logger)
+		if err != nil {
+			return err
+		}
+		if !proceed {
+			return nil
+		}
 		return tray.RunWithContext(ctx, opts, logger)
 	default:
 		return fmt.Errorf("unsupported run mode: %d", selectRunMode(opts))
 	}
+}
+
+type nativeAccessibility struct{}
+
+func (nativeAccessibility) IsTrusted() (bool, error) {
+	return backend.IsMacOSAccessibilityTrusted()
+}
+
+func (nativeAccessibility) Prompt() error {
+	return backend.PromptForMacOSAccessibility()
+}
+
+func prepareNormalTrayLaunch(logger *log.Logger) (bool, error) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return false, fmt.Errorf("resolve executable path: %w", err)
+	}
+	return macosapp.PrepareBundledTrayLaunch(macosapp.LaunchEnvironment{
+		Platform:       runtime.GOOS,
+		ExecutablePath: executablePath,
+	}, macosapp.LaunchDependencies{
+		LoginItem:     macosapp.NewMainAppService(),
+		Accessibility: nativeAccessibility{},
+		MoveDialog:    macosapp.NewMoveDialog(),
+	}, logger)
 }
 
 func executeDoctor(opts app.Options) error {

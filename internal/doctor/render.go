@@ -35,7 +35,7 @@ func RenderText(report DoctorReport) string {
 	if report.Logs.Error != "" {
 		writeLine(&b, "Log directory error", report.Logs.Error)
 	}
-	writeLine(&b, "LaunchAgent", launchAgentText(report.LaunchAgent))
+	writeLine(&b, "Login Item", loginItemText(report.LoginItem))
 	writeLine(&b, "Runtime status", runtimeStatusText(report.Runtime))
 	if report.Runtime.Path != "" {
 		writeLine(&b, "Runtime status file", report.Runtime.Path)
@@ -76,7 +76,7 @@ func RenderHTML(report DoctorReport) string {
 		htmlRow{"Idle seconds", fmt.Sprintf("%.2f", report.Sample.IdleSeconds)},
 		htmlRow{"Log directory", logDirectoryText(report.Logs)},
 		htmlRow{"Current work log", valueOrUnavailable(report.Logs.CurrentWorkLog)},
-		htmlRow{"LaunchAgent", launchAgentText(report.LaunchAgent)},
+		htmlRow{"Login Item", loginItemText(report.LoginItem)},
 		htmlRow{"Runtime status", runtimeStatusText(report.Runtime)},
 		htmlRow{"Runtime status file", valueOrUnavailable(report.Runtime.Path)},
 		htmlRow{"Runtime selected backend", valueOrUnavailable(report.Runtime.Status.SelectedBackend)},
@@ -280,7 +280,7 @@ func logDirectoryText(logs LogDirectoryReport) string {
 	return logs.Directory + " (not writable)"
 }
 
-func launchAgentText(report LaunchAgentReport) string {
+func loginItemText(report LoginItemReport) string {
 	value := stringOrUnknown(string(report.State))
 	if report.Detail != "" {
 		value += " - " + report.Detail

@@ -3,12 +3,11 @@ package doctor
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+
+	"workmuch-go/internal/macosapp"
 )
 
 func TestDetectLinuxSessionReportsWaylandAsUnsupported(t *testing.T) {
@@ -58,43 +57,61 @@ func TestDetectLinuxSessionIsNotApplicableOutsideLinux(t *testing.T) {
 	assert.False(t, report.Applicable)
 }
 
-func TestLaunchAgentCheckerReportsCommandTimeoutAsError(t *testing.T) {
-	homeDir := createLaunchAgentPlist(t)
-	checker := NativeLaunchAgentChecker{
+type fakeLoginItemService struct {
+	state macosapp.LoginItemState
+	err   error
+}
+
+func (f fakeLoginItemService) Status() (macosapp.LoginItemState, error) {
+	return f.state, f.err
+}
+
+func (fakeLoginItemService) Register() error {
+	return nil
+}
+
+func TestLoginItemCheckerReportsEveryServiceManagementState(t *testing.T) {
+	t.Parallel()
+
+	states := []macosapp.LoginItemState{
+		LoginItemNotRegistered,
+		LoginItemEnabled,
+		LoginItemRequiresApproval,
+		LoginItemNotFound,
+		LoginItemUnsupported,
+	}
+	for _, state := range states {
+		checker := NativeLoginItemChecker{
+			Platform: "darwin",
+			Service:  fakeLoginItemService{state: state},
+		}
+
+		report := checker.Check(context.Background())
+
+		assert.Equal(t, state, report.State)
+		assert.Empty(t, report.Error)
+	}
+}
+
+func TestLoginItemCheckerReportsFrameworkError(t *testing.T) {
+	checker := NativeLoginItemChecker{
 		Platform: "darwin",
-		HomeDir:  func() (string, error) { return homeDir, nil },
-		RunLaunchctl: func(context.Context, string) ([]byte, error) {
-			return nil, context.DeadlineExceeded
+		Service: fakeLoginItemService{
+			state: LoginItemUnsupported,
+			err:   errors.New("ServiceManagement unavailable"),
 		},
 	}
 
 	report := checker.Check(context.Background())
 
-	assert.Equal(t, LaunchAgentError, report.State)
-	assert.ErrorContains(t, errors.New(report.Error), context.DeadlineExceeded.Error())
+	assert.Equal(t, LoginItemUnsupported, report.State)
+	assert.ErrorContains(t, errors.New(report.Error), "ServiceManagement unavailable")
 }
 
-func TestLaunchAgentCheckerReportsMissingLaunchctlAsError(t *testing.T) {
-	homeDir := createLaunchAgentPlist(t)
-	checker := NativeLaunchAgentChecker{
-		Platform: "darwin",
-		HomeDir:  func() (string, error) { return homeDir, nil },
-		RunLaunchctl: func(context.Context, string) ([]byte, error) {
-			return nil, os.ErrNotExist
-		},
-	}
+func TestLoginItemCheckerIsNotApplicableOutsideDarwin(t *testing.T) {
+	t.Parallel()
 
-	report := checker.Check(context.Background())
+	report := (NativeLoginItemChecker{Platform: "linux"}).Check(context.Background())
 
-	assert.Equal(t, LaunchAgentError, report.State)
-	assert.ErrorContains(t, errors.New(report.Error), os.ErrNotExist.Error())
-}
-
-func createLaunchAgentPlist(t *testing.T) string {
-	t.Helper()
-	homeDir := t.TempDir()
-	plistPath := launchAgentPlistPath(homeDir)
-	require.NoError(t, os.MkdirAll(filepath.Dir(plistPath), 0o755))
-	require.NoError(t, os.WriteFile(plistPath, []byte("plist"), 0o600))
-	return homeDir
+	assert.Equal(t, LoginItemNotApplicable, report.State)
 }
