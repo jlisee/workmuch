@@ -29,6 +29,7 @@ typedef struct {
 } WMDoubleResult;
 
 int wmAXIsProcessTrusted(void);
+int wmAXIsProcessTrustedWithPrompt(void);
 WMFrontmostWindowInfo wmGetFrontmostWindowInfo(void);
 WMFrontmostApplicationInfo wmGetFrontmostApplication(void);
 WMStringResult wmGetFocusedWindowTitle(int pid);

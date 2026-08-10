@@ -2,6 +2,11 @@
 
 package backend
 
+/*
+#include "macos_native_bridge_darwin.h"
+*/
+import "C"
+
 func IsMacOSAccessibilityTrusted() (bool, error) {
 	api, err := newMacOSNativeAPI()
 	if err != nil {
@@ -9,4 +14,9 @@ func IsMacOSAccessibilityTrusted() (bool, error) {
 	}
 	defer api.Close()
 	return api.IsAccessibilityTrusted(), nil
+}
+
+func PromptForMacOSAccessibility() error {
+	C.wmAXIsProcessTrustedWithPrompt()
+	return nil
 }

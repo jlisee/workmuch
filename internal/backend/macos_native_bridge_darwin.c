@@ -46,6 +46,25 @@ int wmAXIsProcessTrusted(void) {
 	return AXIsProcessTrusted() ? 1 : 0;
 }
 
+int wmAXIsProcessTrustedWithPrompt(void) {
+	const void* keys[] = {kAXTrustedCheckOptionPrompt};
+	const void* values[] = {kCFBooleanTrue};
+	CFDictionaryRef options = CFDictionaryCreate(
+		kCFAllocatorDefault,
+		keys,
+		values,
+		1,
+		&kCFCopyStringDictionaryKeyCallBacks,
+		&kCFTypeDictionaryValueCallBacks
+	);
+	if (options == NULL) {
+		return AXIsProcessTrusted() ? 1 : 0;
+	}
+	Boolean trusted = AXIsProcessTrustedWithOptions(options);
+	CFRelease(options);
+	return trusted ? 1 : 0;
+}
+
 WMFrontmostWindowInfo wmGetFrontmostWindowInfo(void) {
 	WMFrontmostWindowInfo result;
 	result.pid = 0;
