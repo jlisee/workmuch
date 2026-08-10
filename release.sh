@@ -12,7 +12,7 @@ usage() {
 	cat >&2 <<EOF
 usage:
   $0
-  $0 --local <linux/amd64|linux/arm64>
+  $0 --local <linux/amd64|linux/arm64|darwin/universal>
 EOF
 }
 
@@ -42,7 +42,7 @@ build_local_deb() {
 		other_architecture=amd64
 		;;
 	*)
-		echo "error: unsupported local platform \"$platform\"; use linux/amd64 or linux/arm64" >&2
+		echo "error: unsupported local platform \"$platform\"; use linux/amd64, linux/arm64, or darwin/universal" >&2
 		exit 2
 		;;
 	esac
@@ -78,6 +78,10 @@ if [[ $# -gt 0 ]]; then
 	if [[ $# -ne 2 || $1 != --local ]]; then
 		usage
 		exit 2
+	fi
+	if [[ $2 == darwin/universal ]]; then
+		packaging/macos/release.sh
+		exit 0
 	fi
 	build_local_deb "$2"
 	exit 0

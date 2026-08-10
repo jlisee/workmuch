@@ -230,3 +230,31 @@ func TestValidateTagRejectsInvalidRecordedBase(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), MainBaseTrailer)
 }
+
+func TestParsePlistVersions(t *testing.T) {
+	t.Parallel()
+
+	versions, err := ParsePlistVersions("20260806.52.3+g0123456789ab.dirty")
+
+	require.NoError(t, err)
+	assert.Equal(t, "2026.8.6", versions.Short)
+	assert.Equal(t, "52.3.0", versions.Build)
+}
+
+func TestParsePlistVersionsRejectsInvalidVersion(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParsePlistVersions("dev")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "WorkMuch version")
+}
+
+func TestParsePlistVersionsRejectsInvalidDate(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParsePlistVersions("20261340.52.3+g0123456789ab")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version date")
+}

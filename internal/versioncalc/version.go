@@ -17,7 +17,29 @@ const MainBaseTrailer = "WorkMuch-Main-Base"
 var (
 	tagPattern      = regexp.MustCompile(`^v[0-9]{8}\.[0-9]+\.[0-9]+\+g[0-9a-f]{12}$`)
 	fullHashPattern = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
+	plistPattern    = regexp.MustCompile(`^([0-9]{4})([0-9]{2})([0-9]{2})\.([0-9]+)\.([0-9]+)\+g[0-9a-f]{12}(?:\.dirty)?$`)
 )
+
+type PlistVersions struct {
+	Short string
+	Build string
+}
+
+func ParsePlistVersions(version string) (PlistVersions, error) {
+	matches := plistPattern.FindStringSubmatch(strings.TrimSpace(version))
+	if matches == nil {
+		return PlistVersions{}, fmt.Errorf("%q is not a complete WorkMuch version", version)
+	}
+	if _, err := time.Parse("20060102", matches[1]+matches[2]+matches[3]); err != nil {
+		return PlistVersions{}, fmt.Errorf("%q has an invalid WorkMuch version date: %w", version, err)
+	}
+	month, _ := strconv.Atoi(matches[2])
+	day, _ := strconv.Atoi(matches[3])
+	return PlistVersions{
+		Short: fmt.Sprintf("%s.%d.%d", matches[1], month, day),
+		Build: fmt.Sprintf("%s.%s.0", matches[4], matches[5]),
+	}, nil
+}
 
 type Options struct {
 	Head     string

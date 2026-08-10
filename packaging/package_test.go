@@ -209,7 +209,344 @@ func TestReleaseScriptRejectsUnsupportedLocalPlatform(t *testing.T) {
 	output, err := command.CombinedOutput()
 	require.Error(t, err)
 	assert.Contains(t, string(output), `unsupported local platform "windows/amd64"`)
-	assert.Contains(t, string(output), "linux/amd64 or linux/arm64")
+	assert.Contains(t, string(output), "linux/amd64, linux/arm64, or darwin/universal")
+}
+
+func TestMacOSBundleTemplateHasRequiredLayoutAndPlistKeys(t *testing.T) {
+	t.Parallel()
+
+	plist := readPackageFile(t, "macos/WorkMuch.app/Contents/Info.plist")
+	assert.Contains(t, plist, "<key>CFBundleIdentifier</key>\n\t<string>com.jlisee.workmuch</string>")
+	assert.Contains(t, plist, "<key>CFBundleExecutable</key>\n\t<string>workmuch</string>")
+	assert.Contains(t, plist, "<key>CFBundlePackageType</key>\n\t<string>APPL</string>")
+	assert.Contains(t, plist, "<key>LSUIElement</key>\n\t<true/>")
+	assert.Contains(t, plist, "<key>LSMinimumSystemVersion</key>\n\t<string>13.0</string>")
+	assert.Contains(t, plist, "__WORKMUCH_SHORT_VERSION__")
+	assert.Contains(t, plist, "__WORKMUCH_BUNDLE_VERSION__")
+
+	for _, path := range []string{
+		"macos/WorkMuch.app/Contents/MacOS/workmuch",
+		"macos/WorkMuch.app/Contents/Resources/WorkMuch.icns",
+		"macos/release.sh",
+	} {
+		info, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.False(t, info.IsDir())
+	}
+
+	icon, err := os.ReadFile("macos/WorkMuch.app/Contents/Resources/WorkMuch.icns")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(icon), 8)
+	assert.Equal(t, "icns", string(icon[:4]))
+}
+
+func TestMacOSReleaseScriptBuildsSignsAndVerifiesUniversalDMG(t *testing.T) {
+	t.Parallel()
+
+	script := readPackageFile(t, "macos/release.sh")
+	assert.Contains(t, script, "GOARCH=\"$architecture\"")
+	assert.Contains(t, script, "CGO_ENABLED=1")
+	assert.Contains(t, script, "MACOSX_DEPLOYMENT_TARGET=13.0")
+	assert.Contains(t, script, "-trimpath")
+	assert.Contains(t, script, "lipo -create")
+	assert.Contains(t, script, "codesign --force")
+	assert.Contains(t, script, "--timestamp=none")
+	assert.Contains(t, script, "codesign --verify --deep --strict")
+	assert.Contains(t, script, "codesign -d -r-")
+	assert.Contains(t, script, "hdiutil create")
+	assert.Contains(t, script, "-format UDZO")
+	assert.Contains(t, script, "hdiutil verify")
+	assert.Contains(t, script, "hdiutil attach -readonly")
+	assert.Contains(t, script, "WorkMuch_${version}_universal.dmg")
+	assert.Contains(t, script, "checksums.txt")
+	assert.NotContains(t, script, "spctl")
+}
+
+func TestMacOSReleaseRejectsWrongHostBeforeRunningChecks(t *testing.T) {
+	repositoryDir, err := filepath.Abs("..")
+	require.NoError(t, err)
+	binDir := t.TempDir()
+	writeExecutable(t, filepath.Join(binDir, "uname"), `#!/usr/bin/env bash
+printf 'Linux\n'
+`)
+
+	command := exec.Command("bash", filepath.Join(repositoryDir, "release.sh"), "--local", "darwin/universal")
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"WORKMUCH_CODESIGN_IDENTITY=Test Identity",
+	)
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err)
+	assert.Contains(t, string(output), "must be built on macOS")
+	assert.NotContains(t, string(output), "[Running tests...]")
+}
+
+func TestMacOSReleaseRequiresSigningIdentityBeforeRunningChecks(t *testing.T) {
+	repositoryDir, err := filepath.Abs("..")
+	require.NoError(t, err)
+	binDir := t.TempDir()
+	writeExecutable(t, filepath.Join(binDir, "uname"), `#!/usr/bin/env bash
+printf 'Darwin\n'
+`)
+
+	command := exec.Command("bash", filepath.Join(repositoryDir, "release.sh"), "--local", "darwin/universal")
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"WORKMUCH_CODESIGN_IDENTITY=",
+	)
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err)
+	assert.Contains(t, string(output), "WORKMUCH_CODESIGN_IDENTITY")
+	assert.NotContains(t, string(output), "[Running tests...]")
+}
+
+func TestMacOSReleaseStopsAfterFailedArchitectureBuild(t *testing.T) {
+	scriptPath, binDir, commandLog := setupFakeMacRelease(t)
+	command := exec.Command("bash", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"COMMAND_LOG="+commandLog,
+		"FAKE_HDIUTIL_STATE="+filepath.Join(t.TempDir(), "hdiutil-state"),
+		"WORKMUCH_CODESIGN_IDENTITY=Test Identity",
+		"FAIL_ARCH=arm64",
+	)
+
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err, string(output))
+	commands := readTestFile(t, commandLog)
+	assert.Contains(t, commands, "go:build")
+	assert.Contains(t, commands, "arch=arm64")
+	assert.NotContains(t, commands, "codesign:")
+	assert.NotContains(t, commands, "hdiutil:")
+}
+
+func TestMacOSReleaseStopsWhenSignatureVerificationFails(t *testing.T) {
+	scriptPath, binDir, commandLog := setupFakeMacRelease(t)
+	command := exec.Command("bash", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"COMMAND_LOG="+commandLog,
+		"FAKE_HDIUTIL_STATE="+filepath.Join(t.TempDir(), "hdiutil-state"),
+		"WORKMUCH_CODESIGN_IDENTITY=Test Identity",
+		"FAIL_CODESIGN_VERIFY=1",
+	)
+
+	output, err := command.CombinedOutput()
+
+	require.Error(t, err, string(output))
+	commands := readTestFile(t, commandLog)
+	assert.Contains(t, commands, "arch=arm64")
+	assert.Contains(t, commands, "arch=amd64")
+	assert.Contains(t, commands, "codesign:--force --sign Test Identity --timestamp=none")
+	assert.Contains(t, commands, "codesign:--verify --deep --strict")
+	assert.NotContains(t, commands, "hdiutil:create")
+}
+
+func TestMacOSReleaseWritesVersionedDMGAndChecksum(t *testing.T) {
+	scriptPath, binDir, commandLog := setupFakeMacRelease(t)
+	hdiutilState := filepath.Join(t.TempDir(), "hdiutil-state")
+	command := exec.Command("bash", scriptPath)
+	command.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"COMMAND_LOG="+commandLog,
+		"FAKE_HDIUTIL_STATE="+hdiutilState,
+		"WORKMUCH_CODESIGN_IDENTITY=Test Identity",
+	)
+
+	output, err := command.CombinedOutput()
+
+	require.NoError(t, err, string(output))
+	repositoryDir := filepath.Dir(filepath.Dir(filepath.Dir(scriptPath)))
+	distDir := filepath.Join(repositoryDir, "dist", "macos")
+	artifact := "WorkMuch_" + testPackageVersion + "_universal.dmg"
+	_, err = os.Stat(filepath.Join(distDir, artifact))
+	require.NoError(t, err)
+	checksum := readTestFile(t, filepath.Join(distDir, "checksums.txt"))
+	assert.Contains(t, checksum, artifact)
+	commands := readTestFile(t, commandLog)
+	assert.Contains(t, commands, "lipo:-create")
+	assert.Contains(t, commands, "hdiutil:verify")
+	assert.Contains(t, commands, "hdiutil:attach -readonly")
+}
+
+func setupFakeMacRelease(t *testing.T) (string, string, string) {
+	t.Helper()
+
+	repositoryDir := t.TempDir()
+	macosDir := filepath.Join(repositoryDir, "packaging", "macos")
+	appContents := filepath.Join(macosDir, "WorkMuch.app", "Contents")
+	require.NoError(t, os.MkdirAll(filepath.Join(appContents, "MacOS"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(appContents, "Resources"), 0o755))
+	copyTestFile(t, "macos/release.sh", filepath.Join(macosDir, "release.sh"), 0o755)
+	copyTestFile(t, "macos/WorkMuch.app/Contents/Info.plist", filepath.Join(appContents, "Info.plist"), 0o644)
+	copyTestFile(t, "macos/WorkMuch.app/Contents/MacOS/workmuch", filepath.Join(appContents, "MacOS", "workmuch"), 0o755)
+	copyTestFile(t, "macos/WorkMuch.app/Contents/Resources/WorkMuch.icns", filepath.Join(appContents, "Resources", "WorkMuch.icns"), 0o644)
+
+	commandLog := filepath.Join(repositoryDir, "commands.log")
+	writeExecutable(t, filepath.Join(repositoryDir, "test.sh"), `#!/usr/bin/env bash
+printf 'test\n' >>"$COMMAND_LOG"
+`)
+	writeExecutable(t, filepath.Join(repositoryDir, "lint.sh"), `#!/usr/bin/env bash
+printf 'lint\n' >>"$COMMAND_LOG"
+`)
+
+	binDir := filepath.Join(repositoryDir, "bin")
+	require.NoError(t, os.Mkdir(binDir, 0o755))
+	writeExecutable(t, filepath.Join(binDir, "uname"), `#!/usr/bin/env bash
+printf 'Darwin\n'
+`)
+	writeExecutable(t, filepath.Join(binDir, "xcode-select"), `#!/usr/bin/env bash
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "clang"), `#!/usr/bin/env bash
+printf 'clang:%s\n' "$*" >>"$COMMAND_LOG"
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "git"), `#!/usr/bin/env bash
+printf 'git:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ "$*" == "status --porcelain=v1" ]]; then
+	exit 0
+fi
+exit 90
+`)
+	writeExecutable(t, filepath.Join(binDir, "go"), `#!/usr/bin/env bash
+printf 'go:%s|arch=%s\n' "$*" "${GOARCH:-}" >>"$COMMAND_LOG"
+if [[ "$*" == "env CGO_ENABLED" ]]; then
+	printf '1\n'
+	exit 0
+fi
+if [[ "$*" == "run ./cmd/workmuch-version --format version" ]]; then
+	printf '%s\n' "`+testPackageVersion+`"
+	exit 0
+fi
+if [[ "$*" == "run ./cmd/workmuch-version --format plist-short" ]]; then
+	printf '2026.8.6\n'
+	exit 0
+fi
+if [[ "$*" == "run ./cmd/workmuch-version --format plist-build" ]]; then
+	printf '52.3.0\n'
+	exit 0
+fi
+if [[ "$1" == "build" ]]; then
+	if [[ -n "${FAIL_ARCH:-}" && "${GOARCH:-}" == "$FAIL_ARCH" ]]; then
+		exit 41
+	fi
+	output=''
+	previous=''
+	for argument in "$@"; do
+		if [[ "$previous" == '-o' ]]; then
+			output=$argument
+			break
+		fi
+		previous=$argument
+	done
+	touch "$output"
+	exit 0
+fi
+exit 91
+`)
+	writeExecutable(t, filepath.Join(binDir, "lipo"), `#!/usr/bin/env bash
+printf 'lipo:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ "$1" == '-archs' ]]; then
+	printf 'arm64 x86_64\n'
+	exit 0
+fi
+if [[ "$1" == '-create' ]]; then
+	previous=''
+	for argument in "$@"; do
+		if [[ "$previous" == '-output' ]]; then
+			touch "$argument"
+			exit 0
+		fi
+		previous=$argument
+	done
+fi
+exit 92
+`)
+	writeExecutable(t, filepath.Join(binDir, "codesign"), `#!/usr/bin/env bash
+printf 'codesign:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ "$1" == '--verify' && "${FAIL_CODESIGN_VERIFY:-}" == 1 ]]; then
+	exit 42
+fi
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "plutil"), `#!/usr/bin/env bash
+printf 'plutil:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ "$1" == '-lint' ]]; then
+	exit 0
+fi
+case "$2" in
+CFBundleIdentifier) printf 'com.jlisee.workmuch\n' ;;
+CFBundleExecutable) printf 'workmuch\n' ;;
+CFBundleIconFile) printf 'WorkMuch\n' ;;
+CFBundlePackageType) printf 'APPL\n' ;;
+CFBundleShortVersionString) printf '2026.8.6\n' ;;
+CFBundleVersion) printf '52.3.0\n' ;;
+LSMinimumSystemVersion) printf '13.0\n' ;;
+LSUIElement) printf 'true\n' ;;
+*) exit 93 ;;
+esac
+`)
+	writeExecutable(t, filepath.Join(binDir, "otool"), `#!/usr/bin/env bash
+printf 'otool:%s\n' "$*" >>"$COMMAND_LOG"
+printf '      cmd LC_BUILD_VERSION\n    minos 13.0\n'
+`)
+	writeExecutable(t, filepath.Join(binDir, "hdiutil"), `#!/usr/bin/env bash
+printf 'hdiutil:%s\n' "$*" >>"$COMMAND_LOG"
+case "$1" in
+create)
+	previous=''
+	for argument in "$@"; do
+		if [[ "$previous" == '-srcfolder' ]]; then
+			printf '%s\n' "$argument" >"$FAKE_HDIUTIL_STATE"
+		fi
+		previous=$argument
+	done
+	touch "${@: -1}"
+	;;
+attach)
+	previous=''
+	for argument in "$@"; do
+		if [[ "$previous" == '-mountpoint' ]]; then
+			mountpoint=$argument
+			break
+		fi
+		previous=$argument
+	done
+	source_dir=$(<"$FAKE_HDIUTIL_STATE")
+	cp -R "$source_dir/WorkMuch.app" "$mountpoint/WorkMuch.app"
+	;;
+verify|detach) ;;
+*) exit 94 ;;
+esac
+`)
+	writeExecutable(t, filepath.Join(binDir, "shasum"), `#!/usr/bin/env bash
+printf 'shasum:%s\n' "$*" >>"$COMMAND_LOG"
+if [[ "$*" == *'--check'* ]]; then
+	exit 0
+fi
+printf '%064d  %s\n' 0 "${@: -1}"
+`)
+
+	returnScript := filepath.Join(macosDir, "release.sh")
+	return returnScript, binDir, commandLog
+}
+
+func copyTestFile(t *testing.T, source string, target string, mode os.FileMode) {
+	t.Helper()
+	contents, err := os.ReadFile(source)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(target, contents, mode))
+}
+
+func readTestFile(t *testing.T, path string) string {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(contents)
 }
 
 func writeExecutable(t *testing.T, path string, contents string) {

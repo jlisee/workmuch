@@ -32,6 +32,13 @@ Accessibility permission lets the native backend obtain focused window titles.
 Without it, a focused title can be unavailable. Run `./run.sh doctor` to see
 the current permission and backend report.
 
+The packaged macOS app supports Ventura 13 and later. It uses the main app
+Login Item API for startup and must be installed at
+`/Applications/WorkMuch.app`. See
+[macOS installation and local releases](docs/explanations/macos-release.md) for
+local signing, Gatekeeper, Accessibility, Login Item, update, and uninstall
+instructions.
+
 ## Usage
 
 Show the available commands and options:
@@ -75,8 +82,9 @@ Show the build version:
 ./bin/workmuch --version
 ```
 
-Ordinary builds report `dev`. Published builds use the version recorded in the
-GitHub Release and Debian package. See
+Ordinary builds report `dev`. Release builds embed the calculated repository
+version; published Linux builds use it in the GitHub Release and Debian
+package. See
 [Versioning](docs/explanations/versioning.md) for how the value is calculated,
 validated, and embedded.
 
@@ -127,6 +135,18 @@ untracked changes. They include those source changes and write the selected
 package to `dist/` without fetching, tagging, pushing, or creating a GitHub
 Release. The pinned GoReleaser version is downloaded through the Go toolchain
 when it is not already cached.
+
+On macOS, build a locally signed universal app and DMG with:
+
+```bash
+export WORKMUCH_CODESIGN_IDENTITY="WorkMuch Local Code Signing"
+./release.sh --local darwin/universal
+```
+
+This writes the DMG and its checksum under `dist/macos/`. The macOS artifact is
+not uploaded automatically. It uses a persistent self-signed identity rather
+than Developer ID signing or notarization; follow the dedicated macOS guide for
+installation and Gatekeeper handling.
 
 Maintainers create a release from a clean checkout with:
 

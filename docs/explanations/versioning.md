@@ -31,3 +31,9 @@ replaces it at link time with:
 The `--version` command and tray About screen read this variable. GoReleaser
 also uses the same version for Debian package metadata, filenames, and the
 GitHub Release.
+
+The macOS bundle keeps that complete value in the binary while mapping it to
+Apple's plist formats. For `20260805.43.5+g69d002bbb362`, the bundle uses
+`2026.8.5` as `CFBundleShortVersionString` and `43.5.0` as
+`CFBundleVersion`. A local `.dirty` suffix affects the embedded version and DMG
+name but not these numeric plist values.

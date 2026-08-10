@@ -30,7 +30,7 @@ func run(args []string) error {
 	}
 
 	flags := flag.NewFlagSet("workmuch-version", flag.ContinueOnError)
-	format := flags.String("format", "version", "output field: version, tag, base, head, or main-ref")
+	format := flags.String("format", "version", "output field: version, tag, base, head, main-ref, plist-short, or plist-build")
 	head := flags.String("head", "", "release commit to calculate (default HEAD)")
 	mainBase := flags.String("main-base", "", "recorded main merge-base")
 	if err := flags.Parse(args); err != nil {
@@ -59,6 +59,16 @@ func run(args []string) error {
 		fmt.Println(result.Head)
 	case "main-ref":
 		fmt.Println(result.MainRef)
+	case "plist-short", "plist-build":
+		versions, parseErr := versioncalc.ParsePlistVersions(result.Version)
+		if parseErr != nil {
+			return parseErr
+		}
+		if *format == "plist-short" {
+			fmt.Println(versions.Short)
+		} else {
+			fmt.Println(versions.Build)
+		}
 	default:
 		return fmt.Errorf("unsupported output format %q", *format)
 	}
