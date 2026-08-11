@@ -7,9 +7,12 @@ import (
 	"time"
 )
 
+const recentSaveThreshold = 5 * time.Second
+
 func RenderText(report DoctorReport) string {
 	var b strings.Builder
 	b.WriteString("WorkMuch Doctor\n")
+	writeHealthText(&b, report)
 	writeLine(&b, "Selected backend", valueOrUnavailable(report.SelectedBackend))
 	writeLine(&b, "Active backend", valueOrUnavailable(report.ActiveBackend))
 	writeLinuxDiagnostics(&b, report)
@@ -113,6 +116,29 @@ func RenderHTML(report DoctorReport) string {
 		rows = append(rows, htmlRow{"Runtime status error", report.Runtime.Error})
 	}
 
+	var healthHTML strings.Builder
+	for _, check := range healthChecks(report) {
+		className := "health-fail"
+		statusText := "FAIL"
+		statusLabel := "FAIL"
+		if check.ok {
+			className = "health-ok"
+			statusText = "OK"
+			statusLabel = "OK"
+		}
+		healthHTML.WriteString("<tr class=\"")
+		healthHTML.WriteString(className)
+		healthHTML.WriteString("\"><th>")
+		healthHTML.WriteString(html.EscapeString(check.label))
+		healthHTML.WriteString("</th><td><span class=\"health-icon\" aria-label=\"")
+		healthHTML.WriteString(statusLabel)
+		healthHTML.WriteString("\">●</span> ")
+		healthHTML.WriteString(statusText)
+		healthHTML.WriteString("</td><td>")
+		healthHTML.WriteString(html.EscapeString(check.detail))
+		healthHTML.WriteString("</td></tr>\n")
+	}
+
 	var rowHTML strings.Builder
 	for _, row := range rows {
 		rowHTML.WriteString("<tr><th>")
@@ -148,6 +174,11 @@ func RenderHTML(report DoctorReport) string {
       font-size: 28px;
       font-weight: 650;
     }
+    h2 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      font-weight: 650;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -172,11 +203,32 @@ func RenderHTML(report DoctorReport) string {
     tr:last-child th, tr:last-child td {
       border-bottom: 0;
     }
+    .health {
+      margin-bottom: 22px;
+    }
+    .health th {
+      width: 180px;
+    }
+    .health-icon {
+      font-size: 18px;
+      line-height: 1;
+      vertical-align: -1px;
+    }
+    .health-ok .health-icon {
+      color: #16833a;
+    }
+    .health-fail .health-icon {
+      color: #c92a2a;
+    }
   </style>
 </head>
 <body>
   <main>
     <h1>WorkMuch Status</h1>
+    <h2>Health</h2>
+    <table class="health">
+` + healthHTML.String() + `    </table>
+    <h2>Details</h2>
     <table>
 ` + rowHTML.String() + `    </table>
   </main>
@@ -187,6 +239,91 @@ func RenderHTML(report DoctorReport) string {
 type htmlRow struct {
 	label string
 	value string
+}
+
+type healthCheck struct {
+	label  string
+	ok     bool
+	detail string
+}
+
+func writeHealthText(b *strings.Builder, report DoctorReport) {
+	for _, check := range healthChecks(report) {
+		icon := "❌"
+		if check.ok {
+			icon = "✅"
+		}
+		b.WriteString(icon)
+		b.WriteByte(' ')
+		b.WriteString(check.label)
+		b.WriteString(": ")
+		b.WriteString(check.detail)
+		b.WriteByte('\n')
+	}
+}
+
+func healthChecks(report DoctorReport) []healthCheck {
+	lastSaveOK, lastSaveDetail := lastSaveHealth(report)
+	savingOK, savingDetail := savingHealth(report, lastSaveOK, lastSaveDetail)
+	return []healthCheck{
+		runningHealth(report),
+		{label: "Last save <5s", ok: lastSaveOK, detail: lastSaveDetail},
+		fieldHealth("Title works", report.Sample.WindowTitle),
+		fieldHealth("App works", report.Sample.FrontmostApp),
+		{label: "Saving works", ok: savingOK, detail: savingDetail},
+	}
+}
+
+func runningHealth(report DoctorReport) healthCheck {
+	check := healthCheck{label: "Running"}
+	switch {
+	case report.Runtime.Error != "":
+		check.detail = "error"
+	case !report.Runtime.Present:
+		check.detail = "unknown"
+	case report.Runtime.Status.StartedAt != nil && report.Runtime.Status.StoppedAt == nil:
+		check.ok = true
+		check.detail = "ok"
+	default:
+		check.detail = "stopped"
+	}
+	return check
+}
+
+func lastSaveHealth(report DoctorReport) (bool, string) {
+	if report.Runtime.Status.LastSuccessfulSampleAt == nil ||
+		report.Runtime.Status.LastSuccessfulSampleAt.IsZero() {
+		return false, "unavailable"
+	}
+	age := reportTime(report).Sub(*report.Runtime.Status.LastSuccessfulSampleAt)
+	if age <= recentSaveThreshold {
+		return true, "ok"
+	}
+	return false, "stale"
+}
+
+func fieldHealth(label string, value string) healthCheck {
+	if strings.TrimSpace(value) == "" {
+		return healthCheck{label: label, detail: "unavailable"}
+	}
+	return healthCheck{label: label, ok: true, detail: "ok"}
+}
+
+func savingHealth(report DoctorReport, lastSaveOK bool, lastSaveDetail string) (bool, string) {
+	if strings.TrimSpace(report.Runtime.Status.CurrentWorkLogPath) == "" {
+		return false, "unavailable"
+	}
+	if !lastSaveOK {
+		return false, lastSaveDetail
+	}
+	return true, "ok"
+}
+
+func reportTime(report DoctorReport) time.Time {
+	if report.GeneratedAt.IsZero() {
+		return time.Now()
+	}
+	return report.GeneratedAt
 }
 
 func writeLinuxDiagnostics(b *strings.Builder, report DoctorReport) {

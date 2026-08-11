@@ -115,6 +115,7 @@ type X11Report struct {
 }
 
 type DoctorReport struct {
+	GeneratedAt     time.Time
 	SelectedBackend string
 	ActiveBackend   string
 	BackendError    string

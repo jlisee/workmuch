@@ -105,6 +105,7 @@ func TestCollectorBuildsDoctorReport(t *testing.T) {
 
 	report := collector.Collect(context.Background())
 
+	assert.Equal(t, now, report.GeneratedAt)
 	assert.Equal(t, "darwin", requestedPlatform)
 	assert.Equal(t, backend.BackendAuto, requestedBackend)
 	assert.Equal(t, backend.BackendAuto, report.SelectedBackend)

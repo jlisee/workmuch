@@ -62,6 +62,65 @@ func TestRenderTextUsesStableLabels(t *testing.T) {
 	assert.Contains(t, output, "Sample count: 4")
 }
 
+func TestRenderTextShowsHealthSummaryWithEmoji(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 10, 12, 0, 0, 0, time.UTC)
+	startedAt := now.Add(-time.Minute)
+	lastSaveAt := now.Add(-4 * time.Second)
+	report := DoctorReport{
+		GeneratedAt: now,
+		Sample: SampleReport{
+			FrontmostApp: "Safari",
+			WindowTitle:  "Docs",
+		},
+		Runtime: RuntimeStatusReport{
+			Present: true,
+			Status: status.RuntimeStatus{
+				StartedAt:              &startedAt,
+				LastSuccessfulSampleAt: &lastSaveAt,
+				CurrentWorkLogPath:     "/Users/test/.workmuch/2026-08-10.worklog",
+			},
+		},
+	}
+
+	output := RenderText(report)
+
+	assert.Contains(t, output, "✅ Running: ok")
+	assert.Contains(t, output, "✅ Last save <5s: ok")
+	assert.Contains(t, output, "✅ Title works: ok")
+	assert.Contains(t, output, "✅ App works: ok")
+	assert.Contains(t, output, "✅ Saving works: ok")
+}
+
+func TestRenderTextShowsFailingHealthSummaryWithEmoji(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 10, 12, 0, 0, 0, time.UTC)
+	startedAt := now.Add(-time.Minute)
+	stoppedAt := now.Add(-10 * time.Second)
+	lastSaveAt := now.Add(-6 * time.Second)
+	report := DoctorReport{
+		GeneratedAt: now,
+		Runtime: RuntimeStatusReport{
+			Present: true,
+			Status: status.RuntimeStatus{
+				StartedAt:              &startedAt,
+				StoppedAt:              &stoppedAt,
+				LastSuccessfulSampleAt: &lastSaveAt,
+			},
+		},
+	}
+
+	output := RenderText(report)
+
+	assert.Contains(t, output, "❌ Running: stopped")
+	assert.Contains(t, output, "❌ Last save <5s: stale")
+	assert.Contains(t, output, "❌ Title works: unavailable")
+	assert.Contains(t, output, "❌ App works: unavailable")
+	assert.Contains(t, output, "❌ Saving works: unavailable")
+}
+
 func TestRenderTextExplainsWaylandAndX11Failures(t *testing.T) {
 	t.Parallel()
 
@@ -120,6 +179,53 @@ func TestRenderHTMLShowsX11SamplingFailure(t *testing.T) {
 	assert.Contains(t, output, "connected")
 	assert.Contains(t, output, "X11 sampling")
 	assert.Contains(t, output, "idle time query failed")
+}
+
+func TestRenderHTMLShowsHealthSummaryTable(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 10, 12, 0, 0, 0, time.UTC)
+	startedAt := now.Add(-time.Minute)
+	lastSaveAt := now.Add(-5 * time.Second)
+	report := DoctorReport{
+		GeneratedAt: now,
+		Sample: SampleReport{
+			FrontmostApp: "Terminal",
+			WindowTitle:  "WorkMuch",
+		},
+		Runtime: RuntimeStatusReport{
+			Present: true,
+			Status: status.RuntimeStatus{
+				StartedAt:              &startedAt,
+				LastSuccessfulSampleAt: &lastSaveAt,
+				CurrentWorkLogPath:     "/Users/test/.workmuch/2026-08-10.worklog",
+			},
+		},
+	}
+
+	output := RenderHTML(report)
+
+	assert.Contains(t, output, "<h2>Health</h2>")
+	assert.Contains(t, output, "<tr class=\"health-ok\"><th>Running</th><td><span class=\"health-icon\" aria-label=\"OK\">●</span> OK</td><td>ok</td></tr>")
+	assert.Contains(t, output, "<tr class=\"health-ok\"><th>Last save &lt;5s</th>")
+	assert.Contains(t, output, "<tr class=\"health-ok\"><th>Title works</th>")
+	assert.Contains(t, output, "<tr class=\"health-ok\"><th>App works</th>")
+	assert.Contains(t, output, "<tr class=\"health-ok\"><th>Saving works</th>")
+}
+
+func TestRenderHTMLShowsFailingHealthSummaryTable(t *testing.T) {
+	t.Parallel()
+
+	report := DoctorReport{}
+
+	output := RenderHTML(report)
+
+	assert.Contains(t, output, "<tr class=\"health-fail\"><th>Running</th>")
+	assert.Contains(t, output, "<span class=\"health-icon\" aria-label=\"FAIL\">●</span> FAIL")
+	assert.Contains(t, output, "<tr class=\"health-fail\"><th>Last save &lt;5s</th>")
+	assert.Contains(t, output, "<tr class=\"health-fail\"><th>Title works</th>")
+	assert.Contains(t, output, "<tr class=\"health-fail\"><th>App works</th>")
+	assert.Contains(t, output, "<tr class=\"health-fail\"><th>Saving works</th>")
 }
 
 func TestRenderHTMLEscapesReportValues(t *testing.T) {

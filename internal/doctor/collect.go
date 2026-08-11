@@ -49,6 +49,7 @@ func (c Collector) Collect(ctx context.Context) DoctorReport {
 	}
 
 	report := DoctorReport{
+		GeneratedAt:     now,
 		SelectedBackend: selectedBackend,
 		Sample: SampleReport{
 			Source: SampleSourceDiagnostic,
